@@ -250,7 +250,7 @@ function genCard(c,interp,q,ns){
 
 
 /* ===== MAIN ===== */
-export default function App(){
+export default function App({ onPlayDomiMo }){
   const [phase,setPhase]=useState("question");
   const [question,setQ]=useState("");
   const [r1,sR1]=useState(null),[r2,sR2]=useState(null);
@@ -403,8 +403,11 @@ export default function App(){
           })}
         </div>
 
-        {/* What is Mo? */}
-        {!hr&&<div style={{textAlign:"center",marginBottom:16}}><button className="ib" onClick={()=>sShowInfo(true)}>What is Mo?</button></div>}
+        {/* What is Mo? + Domi-Mo — always visible */}
+        <div style={{textAlign:"center",marginBottom:16,display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+          {!hr&&<button className="ib" onClick={()=>sShowInfo(true)}>What is Mo?</button>}
+          {onPlayDomiMo&&<button className="ib" onClick={onPlayDomiMo} style={{color:P.saffron,borderColor:P.saffron+"66"}}>⬥ Play Domi-Mo</button>}
+        </div>
 
         {/* QUESTION */}
         <section style={{animation:"fadeIn 0.5s ease",marginBottom:20}}>
