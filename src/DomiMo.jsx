@@ -346,23 +346,32 @@ export default function DomiMo({ onBack }) {
     setGame(gs);
   }, []);
 
-  const { mpStatus, myPlayerIndex: mpMyIdx, roomCode, error: mpError, quickMatch, createRoom, joinByCode, pushGameState, leaveMatch } = useMultiplayer({
+  const { mpStatus, myPlayerIndex: _hookPlayerIdx, roomCode, error: mpError, quickMatch, createRoom, joinByCode, pushGameState, leaveMatch } = useMultiplayer({
     onGameStateUpdate: handleRemoteState,
     onOpponentDisconnect: () => setOpponentGone(true),
   });
 
-  useEffect(() => { if (mpMyIdx !== null) setMyPlayerIndex(mpMyIdx); }, [mpMyIdx]);
-
-  // Host: once opponent joins, generate and push initial game state
+  // Sync player index from hook (for host, set before handleRemoteState fires)
   useEffect(() => {
-    if (mpStatus === "connected" && myPlayerIndex === 0 && !game) {
+    if (_hookPlayerIdx !== null) setMyPlayerIndex(_hookPlayerIdx);
+  }, [_hookPlayerIdx]);
+
+  // Host: once opponent joins, push initial game state
+  // Use a ref to ensure we only push once even if effect re-fires
+  const hostPushedRef = useRef(false);
+  useEffect(() => {
+    if (mpStatus === "connected" && myPlayerIndex === 0 && !hostPushedRef.current) {
+      hostPushedRef.current = true;
       const g = initG();
       setGame(g);
       setScreen("game");
       setMsg("Your turn — play any tile");
-      pushGameState(toRaw(g));
+      // Small delay so P2's subscription is ready before we push
+      setTimeout(() => pushGameState(toRaw(g)), 800);
     }
-  }, [mpStatus, myPlayerIndex, game, pushGameState]);
+    // Reset flag when we leave a match
+    if (mpStatus === "idle") hostPushedRef.current = false;
+  }, [mpStatus, myPlayerIndex, pushGameState]);
 
   // ── lobby actions ──
   const handleQuickMatch = async () => {
