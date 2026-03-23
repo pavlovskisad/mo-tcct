@@ -197,6 +197,55 @@ function MantraBar({ progress, recs, compact, scoredSyls }) {
   );
 }
 
+// ── TileDemo ─────────────────────────────────────────────────────────────────────────────────
+function TileDemo() {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setStep(s => (s + 1) % 4), 1800);
+    return () => clearInterval(iv);
+  }, []);
+  const S = 32, TF = "'Space Mono',monospace";
+  const cellStyle = (si, glow) => ({
+    width: S, height: S + 4, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    background: `${SC[si]}${glow ? "18" : "0A"}`, border: `1px solid ${SC[si]}${glow ? "88" : "33"}`,
+    boxShadow: glow ? `0 0 12px ${SC[si]}44` : "none", transition: "all 0.4s",
+  });
+  const lbl = (si, txt) => <span style={{ fontSize: 8, color: SC[si], fontFamily: TF, fontWeight: 700, lineHeight: 1 }}>{txt}</span>;
+  const tb = (si) => <span style={{ fontSize: 12, color: SC[si], lineHeight: 1 }}>{TIB[si]}</span>;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, margin: "10px 0 14px", padding: "10px 0", borderTop: `1px solid ${P.royalBlue}15`, borderBottom: `1px solid ${P.royalBlue}15` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <div style={cellStyle(0, false)}>{lbl(0, "AH")}{tb(0)}</div>
+        <div style={cellStyle(1, step >= 2)}>{lbl(1, "RA")}{tb(1)}</div>
+        {step >= 1 && step < 3 && <>
+          <div style={{
+            display: "flex", alignItems: "center", padding: "2px 1px",
+            border: `1px solid ${step >= 2 ? P.yellow + "66" : P.gold + "22"}`,
+            background: step >= 2 ? `${P.yellow}10` : "transparent",
+            transition: "all 0.5s", marginLeft: step >= 2 ? -2 : 8,
+            opacity: step >= 2 ? 0.6 : 1,
+          }}>
+            <div style={{ padding: "3px 4px", display: "flex", flexDirection: "column", alignItems: "center", background: `${SC[1]}08` }}>
+              {lbl(1, "RA")}{tb(1)}
+            </div>
+            <div style={{ width: 1, height: 18, background: P.gold + "22" }} />
+            <div style={{ padding: "3px 4px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+              {lbl(2, "PA")}{tb(2)}
+            </div>
+          </div>
+        </>}
+        {step >= 3 && <div style={{ ...cellStyle(2, true), animation: "scoreFlash 0.8s ease" }}>{lbl(2, "PA")}{tb(2)}</div>}
+      </div>
+      <div style={{ fontSize: 9, fontFamily: TF, color: P.tM + "88", textAlign: "center" }}>
+        {step === 0 && "chain ends with RA..."}
+        {step === 1 && "tile RA→PA: connector matches end"}
+        {step === 2 && "connector merges with chain end"}
+        {step === 3 && "payload PA becomes the new end ✓"}
+      </div>
+    </div>
+  );
+}
+
 // ── MantraAnim ─────────────────────────────────────────────────────────────────
 function MantraAnim() {
   const [active, setActive] = useState(0);
@@ -498,7 +547,7 @@ export default function DomiMo({ onBack }) {
           {/* ── MENU state ── */}
           {lobbyView === "menu" && (
             <>
-              <div style={{ background: "#1E2850", border: `1px solid ${P.royalBlue}25`, padding: "24px 20px", marginBottom: 16 }}>
+              <div style={{ background: "#1E2850", border: `1px solid ${P.royalBlue}25`, padding: "24px 20px", marginBottom: 20 }}>
                 {mpError && <div style={{ fontSize: 10, color: P.red, fontFamily: F, marginBottom: 16, padding: "8px", border: `1px solid ${P.red}33` }}>{mpError}</div>}
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
                   <button className="dm-b" onClick={handleQuickMatch} style={{ width: 240 }}>⚡ Quick Match</button>
@@ -510,21 +559,23 @@ export default function DomiMo({ onBack }) {
                 </div>
               </div>
 
-              <div style={{ background: `${P.royalBlue}12`, border: `1px solid ${P.bGold}22`, padding: "16px 14px", marginBottom: 16, textAlign: "center" }}>
+              <div style={{ background: `${P.royalBlue}12`, border: `1px solid ${P.bGold}22`, padding: "16px 14px", marginBottom: 22, textAlign: "center" }}>
                 <p style={{ fontSize: 11, letterSpacing: 4, color: P.bGold, fontFamily: F, fontWeight: 700, marginBottom: 8 }}>OM AH RA PA TSA NA DHI</p>
-                <p style={{ fontSize: 13, lineHeight: 1.8, color: P.t2 }}>
-                  A sacred invocation of Manjushri, Bodhisattva of Wisdom. Each syllable carries the energy of <span style={{ color: P.t1 }}>clarity, sharp intellect, and deep understanding</span>.
+                <p style={{ fontSize: 14, lineHeight: 1.8, color: P.t2 }}>
+                  A sacred invocation of Manjushri, the Bodhisattva of Wisdom. Each syllable carries the energy of <span style={{ color: P.t1 }}>clarity, sharp intellect, and deep understanding</span>. Practitioners chant this mantra to dissolve confusion, strengthen memory, and awaken the kind of insight that sees through surface into the heart of things.
                 </p>
               </div>
 
-              <div style={{ background: "#1E2850", border: `1px solid ${P.royalBlue}20`, padding: "18px 16px", marginBottom: 16, textAlign: "left" }}>
-                <div style={{ fontSize: 11, color: P.bGold, fontFamily: F, fontWeight: 700, letterSpacing: 2, marginBottom: 12 }}>HOW TO PLAY</div>
-                <div style={{ fontSize: 13, lineHeight: 1.9, color: P.t2 }}>
-                  <p style={{ marginBottom: 8 }}>Each tile has a <span style={{ color: P.bGold }}>connector</span> and a <span style={{ color: P.teal }}>payload</span>. Play a tile whose connector matches an open chain end — the payload becomes the new end.</p>
-                  <p style={{ marginBottom: 8 }}>Build mantra sequences left→right: <span style={{ color: P.bGold, fontFamily: F }}>AH→RA→PA→TSA→NA→DHI</span></p>
-                  <p style={{ marginBottom: 8 }}><span style={{ color: P.bGold }}>Points:</span> 2 in a row = 1 · 3 = 3 · 4 = 7 · 5 = 15 · full mantra = 30</p>
-                  <p style={{ marginBottom: 8 }}><span style={{ color: P.saffron }}>Streaks:</span> score a segment and play again — up to 2 bonus turns.</p>
-                  <p>Can't play? Draw 3 tiles from the Mala Pool. Still stuck? Pass. Two consecutive passes end the game. Fill the mantra bar twice to win.</p>
+              <div style={{ background: "#1A2040", border: `1px solid ${P.royalBlue}15`, padding: "18px 16px", marginBottom: 24, textAlign: "left" }}>
+                <h3 style={{ fontSize: 11, color: P.bGold, fontWeight: 700, marginBottom: 10, fontFamily: F, letterSpacing: 2 }}>HOW TO PLAY</h3>
+                <div style={{ fontSize: 15, lineHeight: 1.9, color: P.t2 }}>
+                  <p style={{ marginBottom: 12 }}>Each tile has a <span style={{ color: P.bGold }}>connector</span> and a <span style={{ color: P.teal }}>payload</span>. The connector matches an open chain end — the payload becomes the new end.</p>
+                  <TileDemo />
+                  <p style={{ marginBottom: 8 }}>Build mantra sequences reading left→right: <span style={{ color: P.bGold, fontFamily: F }}>AH→RA→PA→TSA→NA→DHI</span>.</p>
+                  <p style={{ marginBottom: 8 }}><span style={{ color: P.bGold, fontFamily: F }}>Points:</span> 2 in a row = 1 · 3 = 3 · 4 = 7 · 5 = 15 · full mantra = 30.</p>
+                  <p style={{ marginBottom: 8 }}><span style={{ color: P.saffron }}>Streaks:</span> score a segment and go again — up to 2 bonus turns. Chain your moves wisely.</p>
+                  <p style={{ marginBottom: 8 }}>Can't play? Draw <span style={{ color: P.saffron }}>3 tiles</span> from the Mala Pool. Still stuck? Pass. Two consecutive passes end the game.</p>
+                  <p>Fill the mantra bar twice to win. Highest score takes it.</p>
                 </div>
               </div>
             </>
