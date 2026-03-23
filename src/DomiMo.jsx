@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useMultiplayer } from "./useMultiplayer.js";
 
 const SYL = ["AH", "RA", "PA", "TSA", "NA", "DHI"];
@@ -81,7 +81,11 @@ function ChainBoard({ chain, compatEnds, onEndClick, screenW, scoredIds }) {
     </div>
   );
   const len = chain.length;
-  const GAP = 2, EDGE = 34, VIS = 5, DOT = 4, MAX_DOTS = 2;
+  const isMobileBoard = (screenW || 400) < 600;
+  const EDGE = isMobileBoard ? 34 : 58;
+  const SYL_FONT = isMobileBoard ? 10 : 15;
+  const TIB_FONT = isMobileBoard ? 14 : 22;
+  const GAP = isMobileBoard ? 2 : 4, VIS = 5, DOT = isMobileBoard ? 4 : 6, MAX_DOTS = 2;
   const midCount = Math.max(0, len - Math.min(VIS * 2, len));
   const dotsToShow = Math.min(midCount, MAX_DOTS);
   const cSet = new Set(compatEnds.map(e => `${e.node.id}:${e.side}`));
@@ -111,8 +115,8 @@ function ChainBoard({ chain, compatEnds, onEndClick, screenW, scoredIds }) {
         boxShadow: click ? `0 0 16px ${P.yellow}55` : isScored ? `0 0 20px ${SC[si]}55` : isEnd ? `0 0 6px ${SC[si]}22` : "none",
         animation: click ? "ep 1.4s ease infinite" : isScored ? "scoreFlash 1s ease" : "none",
       }}>
-        <span style={{ fontSize: 10, color: SC[si], fontFamily: F, fontWeight: 700, lineHeight: 1 }}>{nd.syllable}</span>
-        <span style={{ fontSize: 14, color: SC[si], lineHeight: 1, marginTop: 1 }}>{TIB[si]}</span>
+        <span style={{ fontSize: SYL_FONT, color: SC[si], fontFamily: F, fontWeight: 700, lineHeight: 1 }}>{nd.syllable}</span>
+        <span style={{ fontSize: TIB_FONT, color: SC[si], lineHeight: 1, marginTop: 1 }}>{TIB[si]}</span>
         <div style={{ position: "absolute", bottom: 1, right: 1, width: 3, height: 3, borderRadius: "50%", background: PC[nd.placedBy] }} />
       </div>
     );
@@ -133,7 +137,7 @@ function ChainBoard({ chain, compatEnds, onEndClick, screenW, scoredIds }) {
 }
 
 // ── HTile ──────────────────────────────────────────────────────────────────────
-function HTile({ tile, onClick, selected, lit, tileW, isDesktop }) {
+function HTile({ tile, onClick, selected, lit, tileW, isDesktop, tileH }) {
   const ci = SYL.indexOf(tile.connector), pi = SYL.indexOf(tile.payload);
   const dim = !lit && !selected;
   const w = tileW || 80;
@@ -145,6 +149,7 @@ function HTile({ tile, onClick, selected, lit, tileW, isDesktop }) {
       display: "flex", alignItems: "center",
       padding: isDesktop ? "6px 5px" : (w < 80 ? "3px 2px" : "4px 3px"),
       width: w,
+      height: tileH || undefined,
       background: selected ? `${P.yellow}30` : lit ? `${P.navy}DD` : `${P.navy}55`,
       border: selected ? `2px solid ${P.yellow}` : lit ? `2px solid ${SC[ci]}77` : `1px solid ${P.gold}22`,
       cursor: onClick ? "pointer" : "default",
@@ -267,6 +272,43 @@ function MantraAnim() {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── MobileHand — measures container height to fit all tiles without scroll ──────
+function MobileHand({ tiles, cols, gap, playableIds, selId, onTile, isMyTurn }) {
+  const ref = React.useRef(null);
+  const [tileH, setTileH] = React.useState(null);
+  const [tileW, setTileW] = React.useState(80);
+
+  React.useEffect(() => {
+    if (!ref.current) return;
+    const measure = () => {
+      const { width, height } = ref.current.getBoundingClientRect();
+      const rows = Math.ceil(tiles.length / cols);
+      const availH = height - (rows - 1) * gap;
+      const h = Math.floor(availH / rows);
+      const w = Math.floor((width - (cols - 1) * gap) / cols);
+      setTileH(Math.max(h, 28));
+      setTileW(Math.min(w, 84));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(ref.current);
+    return () => ro.disconnect();
+  }, [tiles.length, cols, gap]);
+
+  return (
+    <div ref={ref} style={{ flex: 1, overflow: "hidden", minHeight: 0, pointerEvents: isMyTurn ? "auto" : "none", opacity: isMyTurn ? 1 : 0.45 }}>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, ${tileW}px)`, gridAutoRows: tileH || "auto", gap: `${gap}px`, justifyContent: "center", alignContent: "start", height: "100%" }}>
+        {tiles.map(t => (
+          <HTile key={t.id} tile={t} tileW={tileW} tileH={tileH} isDesktop={false}
+            onClick={isMyTurn && playableIds.has(t.id) ? () => onTile(t) : undefined}
+            selected={selId === t.id}
+            lit={isMyTurn && playableIds.has(t.id)} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -588,79 +630,99 @@ export default function DomiMo({ onBack }) {
       {/* ══ GAME ═══════════════════════════════════════════════════════════════ */}
       {screen === "game" && game && (() => {
         const isMobile = screenW < 600;
-        const cols = 4;
-        const hGap = isMobile ? 3 : 10;
-        const hPad = isMobile ? 12 : 24;
-        const containerW = Math.min(screenW, isMobile ? 500 : 820);
-        const rawTW = Math.floor((containerW - hPad * 2 - (cols - 1) * hGap) / cols);
-        const tW = isMobile ? Math.min(rawTW, 84) : Math.min(rawTW, 168);
+
+        // ── tile sizing ──
+        // Mobile: fit ALL tiles in hand area without scroll
+        // 20 tiles max, 4 cols = 5 rows. Calculate tile width to fit.
+        const mCols = 4, mGap = 3, mPad = 8;
+        // We'll compute tileW after we know available height — use fixed for now,
+        // height is computed via CSS flex. Width-first: fit 4 cols in screen.
+        const mRawW = Math.floor((screenW - mPad * 2 - (mCols - 1) * mGap) / mCols);
+        const mTileW = Math.min(mRawW, 80);
+
+        // Desktop: 4 cols, max tile width, centered
+        const dCols = 4, dGap = 12, dPad = 32;
+        const dContainerW = Math.min(screenW, 900);
+        const dRawW = Math.floor((dContainerW - dPad * 2 - (dCols - 1) * dGap) / dCols);
+        const dTileW = Math.min(dRawW, 180);
+
+        const cols = isMobile ? mCols : dCols;
+        const hGap = isMobile ? mGap : dGap;
+        const tW = isMobile ? mTileW : dTileW;
+
+        // Mobile board: shrink to give hand more room (hand fills remaining flex)
+        const boardH = isMobile ? "26vh" : "42vh";
 
         return (
           <div style={{ position: "fixed", inset: 0, zIndex: 3, display: "flex", flexDirection: "column", maxWidth: "100vw", overflow: "hidden" }}>
             {/* top bar */}
-            <div style={{ background: "#131A2E", borderBottom: `1px solid ${P.gold}18`, padding: "5px 10px 6px", flexShrink: 0 }}>
+            <div style={{ background: "#131A2E", borderBottom: `1px solid ${P.gold}18`, padding: isMobile ? "5px 10px 6px" : "6px 16px 8px", flexShrink: 0 }}>
               <div style={{ display: "flex", height: 3, marginBottom: 4 }}>{FC.map((c, i) => <div key={i} style={{ flex: 1, background: c }} />)}</div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                <button onClick={exitToLobby} style={{ background: "none", border: "none", color: P.tM, fontSize: 10, fontFamily: F, cursor: "pointer" }}>← EXIT</button>
+                <button onClick={exitToLobby} style={{ background: "none", border: "none", color: P.tM, fontSize: isMobile ? 10 : 12, fontFamily: F, cursor: "pointer" }}>← EXIT</button>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  {roomCode && <span style={{ fontSize: 8, fontFamily: F, color: P.tM + "66", letterSpacing: 1 }}>{roomCode}</span>}
-                  <span style={{ fontSize: 10, fontFamily: F, color: P.saffron }}>MALA {game.pool.length}</span>
+                  {roomCode && <span style={{ fontSize: isMobile ? 8 : 10, fontFamily: F, color: P.tM + "66", letterSpacing: 1 }}>{roomCode}</span>}
+                  <span style={{ fontSize: isMobile ? 10 : 12, fontFamily: F, color: P.saffron }}>MALA {game.pool.length}</span>
                 </div>
               </div>
               <MantraBar progress={game.progress} recs={game.recs} compact
                 scoredSyls={game.scoredIds ? new Set((game.chain || []).filter(n => game.scoredIds.has(n.id)).map(n => n.syllable)) : null} />
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: isMobile ? 16 : 32, marginTop: 4 }}>
                 {game.players.map((p, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, opacity: game.cur === i ? 1 : 0.4 }}>
-                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: PC[i] }} />
-                    <span style={{ fontSize: 20, fontFamily: F, fontWeight: 700, color: PC[i] }}>{p.score}</span>
-                    <span style={{ fontSize: 7, fontFamily: F, color: PC[i] + "88" }}>{i === myPlayerIndex ? "YOU" : "OPP"}</span>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: isMobile ? 5 : 8, opacity: game.cur === i ? 1 : 0.4 }}>
+                    <div style={{ width: isMobile ? 7 : 10, height: isMobile ? 7 : 10, borderRadius: "50%", background: PC[i] }} />
+                    <span style={{ fontSize: isMobile ? 20 : 28, fontFamily: F, fontWeight: 700, color: PC[i] }}>{p.score}</span>
+                    <span style={{ fontSize: isMobile ? 7 : 10, fontFamily: F, color: PC[i] + "88" }}>{i === myPlayerIndex ? "YOU" : "OPP"}</span>
                   </div>
                 ))}
               </div>
-              <div style={{ textAlign: "center", fontSize: 10, color: isMyTurn ? P.t1 : P.tM, fontFamily: F, padding: "3px 0 3px 10px", borderLeft: `3px solid ${isMyTurn ? PC[game.cur] : P.tM + "33"}`, marginTop: 4, background: isMyTurn ? `${PC[game.cur]}12` : "transparent" }}>{msg}</div>
+              <div style={{ textAlign: "center", fontSize: isMobile ? 10 : 12, color: isMyTurn ? P.t1 : P.tM, fontFamily: F, padding: "3px 0 3px 10px", borderLeft: `3px solid ${isMyTurn ? PC[game.cur] : P.tM + "33"}`, marginTop: 4, background: isMyTurn ? `${PC[game.cur]}12` : "transparent" }}>{msg}</div>
             </div>
 
             {/* board */}
-            <div style={{ height: isMobile ? "32vh" : "40vh", flexShrink: 0, background: "#1C2848", overflow: "hidden", borderBottom: `1px solid ${P.gold}10` }}>
+            <div style={{ height: boardH, flexShrink: 0, background: "#1C2848", overflow: "hidden", borderBottom: `1px solid ${P.gold}10` }}>
               <ChainBoard chain={game.chain} compatEnds={isMyTurn ? compat : []} onEndClick={isMyTurn ? placeOn : () => {}} screenW={screenW} scoredIds={game.scoredIds} />
             </div>
 
-            {/* hand */}
-            <div style={{ flex: 1, background: "#111830", padding: isMobile ? "4px 6px" : "8px 20px", overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
+            {/* hand — always visible, dimmed + locked on opponent turn */}
+            <div style={{ flex: 1, background: "#111830", padding: isMobile ? `4px ${mPad}px` : `8px ${dPad}px`, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isMobile ? 3 : 6, flexShrink: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <div style={{ width: 7, height: 7, borderRadius: "50%", background: PC[myPlayerIndex ?? 0] }} />
-                  <span style={{ fontSize: 10, fontFamily: F, color: PC[myPlayerIndex ?? 0], fontWeight: 700, letterSpacing: 2 }}>YOUR HAND</span>
+                  <span style={{ fontSize: isMobile ? 10 : 12, fontFamily: F, color: PC[myPlayerIndex ?? 0], fontWeight: 700, letterSpacing: 2 }}>YOUR HAND</span>
+                  {!isMyTurn && <span style={{ fontSize: isMobile ? 8 : 9, fontFamily: F, color: P.tM + "88", letterSpacing: 1, marginLeft: 4 }}>— opponent's turn</span>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 8, fontFamily: F, color: P.tM }}>{isMyTurn ? `${playable.length}/${sortedHand.length}` : `${sortedHand.length} tiles`}</span>
+                  <span style={{ fontSize: isMobile ? 8 : 10, fontFamily: F, color: P.tM }}>{isMyTurn ? `${playable.length}/${sortedHand.length}` : `${sortedHand.length} tiles`}</span>
                   {isMyTurn && playable.length === 0 && game.chain && (<>
-                    {canDraw && <button onClick={drawTile} style={{ background: P.saffron + "22", color: P.saffron, border: `1px solid ${P.saffron}55`, fontFamily: F, fontSize: 8, fontWeight: 700, padding: "3px 7px", cursor: "pointer" }}>DRAW 3</button>}
-                    <button onClick={pass} style={{ background: "none", color: P.t2, border: `1px solid ${P.tM}44`, fontFamily: F, fontSize: 8, padding: "3px 7px", cursor: "pointer" }}>PASS</button>
+                    {canDraw && <button onClick={drawTile} style={{ background: P.saffron + "22", color: P.saffron, border: `1px solid ${P.saffron}55`, fontFamily: F, fontSize: isMobile ? 8 : 10, fontWeight: 700, padding: "3px 7px", cursor: "pointer" }}>DRAW 3</button>}
+                    <button onClick={pass} style={{ background: "none", color: P.t2, border: `1px solid ${P.tM}44`, fontFamily: F, fontSize: isMobile ? 8 : 10, padding: "3px 7px", cursor: "pointer" }}>PASS</button>
                   </>)}
                 </div>
               </div>
 
-              <div style={{ fontSize: 8, fontFamily: F, color: P.tM, marginBottom: isMobile ? 3 : 5, flexShrink: 0 }}>
-                {!isMyTurn ? "Waiting for opponent..." : !game.chain ? "TAP ANY TILE" : game.sel ? "TAP END ON BOARD" : playable.length ? "TAP A LIT TILE" : ""}
+              <div style={{ fontSize: isMobile ? 8 : 10, fontFamily: F, color: P.tM, marginBottom: isMobile ? 3 : 5, flexShrink: 0 }}>
+                {!isMyTurn ? "Study your hand while opponent plays..." : !game.chain ? "TAP ANY TILE TO START" : game.sel ? "TAP AN END ON BOARD" : playable.length ? "TAP A LIT TILE" : ""}
               </div>
 
-              {!isMyTurn ? (
-                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 10 }}>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {[0, 1, 2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: PC[game.cur], animation: `pulse 1.2s ease ${i * 0.4}s infinite` }} />)}
-                  </div>
-                  <div style={{ fontSize: 9, fontFamily: F, color: P.tM, letterSpacing: 3 }}>OPPONENT'S TURN</div>
-                </div>
+              {/* tiles — always shown, pointer-events disabled on opponent turn */}
+              {isMobile ? (
+                <MobileHand
+                  tiles={sortedHand}
+                  cols={mCols} gap={mGap}
+                  playableIds={playableIds}
+                  selId={game.sel?.id}
+                  onTile={selTile}
+                  isMyTurn={isMyTurn}
+                />
               ) : (
-                <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, ${tW}px)`, gap: `${hGap}px`, justifyContent: "start", alignContent: "start" }}>
+                <div style={{ flex: 1, overflow: "hidden", minHeight: 0, pointerEvents: isMyTurn ? "auto" : "none", opacity: isMyTurn ? 1 : 0.45 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: `repeat(${dCols}, ${dTileW}px)`, gap: `${dGap}px`, justifyContent: "center", alignContent: "start" }}>
                     {sortedHand.map(t => (
-                      <HTile key={t.id} tile={t} tileW={tW} isDesktop={!isMobile}
-                        onClick={playableIds.has(t.id) ? () => selTile(t) : undefined}
+                      <HTile key={t.id} tile={t} tileW={dTileW} isDesktop={true}
+                        onClick={isMyTurn && playableIds.has(t.id) ? () => selTile(t) : undefined}
                         selected={game.sel?.id === t.id}
-                        lit={playableIds.has(t.id)} />
+                        lit={isMyTurn && playableIds.has(t.id)} />
                     ))}
                   </div>
                 </div>
