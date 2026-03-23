@@ -62,8 +62,16 @@ function doSc(ch, nid, cp, pls, prog, recs, fr) {
   if (sc.pts > 0) { npl[cp].score += sc.pts; sc.syls.forEach(s => np.add(s)); if (np.size >= 6) { nr++; if (nfr === null) nfr = cp; np = new Set(); } }
   return { sc, npl, np: [...np], nr, ended: nr >= 2, nfr };
 }
-const toRaw = g => ({ ...g, progress: [...(g.progress instanceof Set ? g.progress : new Set(g.progress || []))] });
-const fromRaw = g => ({ ...g, progress: new Set(g.progress || []) });
+const toRaw = g => ({
+  ...g,
+  progress: [...(g.progress instanceof Set ? g.progress : new Set(g.progress || []))],
+  scoredIds: g.scoredIds instanceof Set ? [...g.scoredIds] : (Array.isArray(g.scoredIds) ? g.scoredIds : null),
+});
+const fromRaw = g => ({
+  ...g,
+  progress: new Set(g.progress || []),
+  scoredIds: g.scoredIds ? new Set(g.scoredIds) : null,
+});
 
 // ── ChainBoard ─────────────────────────────────────────────────────────────────
 function ChainBoard({ chain, compatEnds, onEndClick, screenW, scoredIds }) {
@@ -489,17 +497,37 @@ export default function DomiMo({ onBack }) {
 
           {/* ── MENU state ── */}
           {lobbyView === "menu" && (
-            <div style={{ background: "#1E2850", border: `1px solid ${P.royalBlue}25`, padding: "28px 20px", marginBottom: 20 }}>
-              {mpError && <div style={{ fontSize: 10, color: P.red, fontFamily: F, marginBottom: 16, padding: "8px", border: `1px solid ${P.red}33` }}>{mpError}</div>}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
-                <button className="dm-b" onClick={handleQuickMatch} style={{ width: 240 }}>⚡ Quick Match</button>
-                <button className="dm-s" onClick={handleCreateRoom} style={{ width: 240 }}>Create Room</button>
-                <button className="dm-s" onClick={() => setLobbyView("join")} style={{ width: 240 }}>Join with Code</button>
+            <>
+              <div style={{ background: "#1E2850", border: `1px solid ${P.royalBlue}25`, padding: "24px 20px", marginBottom: 16 }}>
+                {mpError && <div style={{ fontSize: 10, color: P.red, fontFamily: F, marginBottom: 16, padding: "8px", border: `1px solid ${P.red}33` }}>{mpError}</div>}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+                  <button className="dm-b" onClick={handleQuickMatch} style={{ width: 240 }}>⚡ Quick Match</button>
+                  <button className="dm-s" onClick={handleCreateRoom} style={{ width: 240 }}>Create Room</button>
+                  <button className="dm-s" onClick={() => setLobbyView("join")} style={{ width: 240 }}>Join with Code</button>
+                </div>
+                <div style={{ fontSize: 11, color: P.tM + "88", fontFamily: F, marginTop: 16, lineHeight: 1.9, textAlign: "center" }}>
+                  Quick Match pairs you instantly<br />or creates a room if no one's waiting
+                </div>
               </div>
-              <div style={{ fontSize: 11, color: P.tM + "99", fontFamily: F, marginTop: 18, lineHeight: 1.9 }}>
-                Quick Match pairs you instantly<br />or creates a room if no one's waiting
+
+              <div style={{ background: `${P.royalBlue}12`, border: `1px solid ${P.bGold}22`, padding: "16px 14px", marginBottom: 16, textAlign: "center" }}>
+                <p style={{ fontSize: 11, letterSpacing: 4, color: P.bGold, fontFamily: F, fontWeight: 700, marginBottom: 8 }}>OM AH RA PA TSA NA DHI</p>
+                <p style={{ fontSize: 13, lineHeight: 1.8, color: P.t2 }}>
+                  A sacred invocation of Manjushri, Bodhisattva of Wisdom. Each syllable carries the energy of <span style={{ color: P.t1 }}>clarity, sharp intellect, and deep understanding</span>.
+                </p>
               </div>
-            </div>
+
+              <div style={{ background: "#1E2850", border: `1px solid ${P.royalBlue}20`, padding: "18px 16px", marginBottom: 16, textAlign: "left" }}>
+                <div style={{ fontSize: 11, color: P.bGold, fontFamily: F, fontWeight: 700, letterSpacing: 2, marginBottom: 12 }}>HOW TO PLAY</div>
+                <div style={{ fontSize: 13, lineHeight: 1.9, color: P.t2 }}>
+                  <p style={{ marginBottom: 8 }}>Each tile has a <span style={{ color: P.bGold }}>connector</span> and a <span style={{ color: P.teal }}>payload</span>. Play a tile whose connector matches an open chain end — the payload becomes the new end.</p>
+                  <p style={{ marginBottom: 8 }}>Build mantra sequences left→right: <span style={{ color: P.bGold, fontFamily: F }}>AH→RA→PA→TSA→NA→DHI</span></p>
+                  <p style={{ marginBottom: 8 }}><span style={{ color: P.bGold }}>Points:</span> 2 in a row = 1 · 3 = 3 · 4 = 7 · 5 = 15 · full mantra = 30</p>
+                  <p style={{ marginBottom: 8 }}><span style={{ color: P.saffron }}>Streaks:</span> score a segment and play again — up to 2 bonus turns.</p>
+                  <p>Can't play? Draw 3 tiles from the Mala Pool. Still stuck? Pass. Two consecutive passes end the game. Fill the mantra bar twice to win.</p>
+                </div>
+              </div>
+            </>
           )}
 
           <div style={{ fontSize: 10, color: P.tM + "88", fontFamily: F, letterSpacing: 2 }}>20 TILES · MALA 108</div>
