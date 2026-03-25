@@ -162,8 +162,11 @@ export function useMultiplayer({ onGameStateUpdate, onOpponentDisconnect }) {
     setMpStatus("searching");
     try {
       await sleep(Math.random() * 600);
+      // Only look for rooms created in the last 5 minutes
+      const cutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       const { data: openMatches } = await supabase.from("matches")
         .select("*").eq("status", "waiting").neq("player1_id", sessionId)
+        .gte("created_at", cutoff)
         .order("created_at", { ascending: true }).limit(1);
 
       if (openMatches && openMatches.length > 0) {
@@ -186,10 +189,11 @@ export function useMultiplayer({ onGameStateUpdate, onOpponentDisconnect }) {
     setMpStatus("searching");
     try {
       const normalized = inputCode.toUpperCase().replace(/[\s-]/g, "");
+      const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
       const { data: matches } = await supabase.from("matches")
-        .select("*").eq("status", "waiting").limit(50);
+        .select("*").eq("status", "waiting").gte("created_at", cutoff).limit(50);
       const match = matches?.find(m => m.code.replace(/-/g, "") === normalized);
-      if (!match) { setError("Room not found or already started."); setMpStatus("idle"); return; }
+      if (!match) { setError("Room not found or expired."); setMpStatus("idle"); return; }
       if (match.player1_id === sessionId) { setError("That's your own room."); setMpStatus("idle"); return; }
       await joinMatch(match);
     } catch (e) {

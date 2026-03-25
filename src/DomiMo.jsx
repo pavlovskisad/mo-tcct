@@ -217,123 +217,20 @@ function TileDemo() {
   );
 }
 
-// ── Online Lobby Screen ────────────────────────────────────────────────────────
-function OnlineLobby({ onStartOnline, onBack }) {
-  const [view, setView] = useState("menu"); // menu | join
-  const [codeInput, setCodeInput] = useState("");
-  const [copied, setCopied] = useState(false);
-
-  const { mpStatus, roomCode, error, quickMatch, createRoom, joinByCode, leaveMatch } = useMultiplayer({
-    onGameStateUpdate: (gs, myIdx) => onStartOnline(gs, myIdx, pushRef.current),
-    onOpponentDisconnect: () => {},
-  });
-  const pushRef = useRef(null);
-
-  // When opponent joins our waiting room, the game starts
-  // via onGameStateUpdate when host pushes initial state
-
-  // When we join as player 2, request the game state
-  // (host will push it when they see player2 joined)
-
-  const handleQuickMatch = async () => {
-    const result = await quickMatch();
-    if (result?.joined) {
-      // We're player 2, wait for host to push initial game state
-    }
-  };
-
-  const handleCreateRoom = async () => {
-    await createRoom();
-  };
-
-  const handleJoin = async () => {
-    if (!codeInput.trim()) return;
-    await joinByCode(codeInput.trim());
-  };
-
-  const copyCode = () => {
-    navigator.clipboard.writeText(roomCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleCancel = async () => {
-    await leaveMatch();
-    setView("menu");
-    setCodeInput("");
-  };
-
-  // waiting for opponent UI
-  if (mpStatus === "waiting" || mpStatus === "searching") {
-    return (
-      <div style={{ textAlign: "center", padding: "32px 16px" }}>
-        <div style={{ fontSize: 9, letterSpacing: 5, color: P.tM, fontFamily: "'Space Mono',monospace", marginBottom: 20 }}>
-          {mpStatus === "searching" ? "SEARCHING..." : "WAITING FOR OPPONENT"}
-        </div>
-        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 28 }}>
-          {[0, 1, 2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: P.bGold, animation: `pulse 1.2s ease ${i * 0.4}s infinite`, opacity: 0.6 }} />)}
-        </div>
-        {roomCode && (
-          <div style={{ marginBottom: 28 }}>
-            <div style={{ fontSize: 10, color: P.tM, fontFamily: "'Space Mono',monospace", letterSpacing: 3, marginBottom: 10 }}>ROOM CODE</div>
-            <div style={{ fontSize: 28, fontFamily: "'Space Mono',monospace", fontWeight: 700, color: P.bGold, letterSpacing: 4, marginBottom: 12 }}>{roomCode}</div>
-            <button onClick={copyCode} style={{ background: copied ? `${P.green}22` : `${P.gold}18`, color: copied ? P.green : P.t2, border: `1px solid ${copied ? P.green : P.gold}44`, fontFamily: "'Space Mono',monospace", fontSize: 9, padding: "5px 14px", cursor: "pointer", letterSpacing: 2 }}>
-              {copied ? "COPIED ✓" : "COPY CODE"}
-            </button>
-            <div style={{ fontSize: 11, color: P.tM, marginTop: 10 }}>Share this code with your opponent</div>
-          </div>
-        )}
-        <button className="dm-s" onClick={handleCancel}>← Cancel</button>
-      </div>
-    );
-  }
-
-  if (view === "join") {
-    return (
-      <div style={{ textAlign: "center", padding: "16px" }}>
-        <div style={{ fontSize: 11, color: P.tM, fontFamily: "'Space Mono',monospace", letterSpacing: 3, marginBottom: 16 }}>ENTER ROOM CODE</div>
-        <input
-          value={codeInput}
-          onChange={e => setCodeInput(e.target.value.toUpperCase())}
-          onKeyDown={e => e.key === "Enter" && handleJoin()}
-          placeholder="AH-RA-PA-TSA"
-          style={{ background: `${P.navy}AA`, border: `1px solid ${P.gold}44`, color: P.t1, fontFamily: "'Space Mono',monospace", fontSize: 16, padding: "10px 16px", width: "100%", textAlign: "center", letterSpacing: 3, marginBottom: 16, outline: "none" }}
-        />
-        {error && <div style={{ fontSize: 10, color: P.red, fontFamily: "'Space Mono',monospace", marginBottom: 12 }}>{error}</div>}
-        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-          <button className="dm-b" onClick={handleJoin} disabled={!codeInput.trim()}>Join</button>
-          <button className="dm-s" onClick={() => { setView("menu"); setCodeInput(""); }}>← Back</button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ textAlign: "center", padding: "16px" }}>
-      {error && <div style={{ fontSize: 10, color: P.red, fontFamily: "'Space Mono',monospace", marginBottom: 16, padding: "8px", background: `${P.red}11`, border: `1px solid ${P.red}33` }}>{error}</div>}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
-        <button className="dm-b" onClick={handleQuickMatch} style={{ width: 220 }}>⚡ Quick Match</button>
-        <button className="dm-s" onClick={handleCreateRoom} style={{ width: 220 }}>Create Room</button>
-        <button className="dm-s" onClick={() => setView("join")} style={{ width: 220 }}>Join with Code</button>
-      </div>
-      <div style={{ fontSize: 10, color: P.tM + "88", fontFamily: "'Space Mono',monospace", marginTop: 20, lineHeight: 1.8 }}>
-        Quick Match: auto-pair with a waiting player<br />or create a room if none found
-      </div>
-    </div>
-  );
-}
-
 // ── Main DomiMo component ──────────────────────────────────────────────────────
 export default function DomiMo({ onBack }) {
-  const [screen, setScreen] = useState("setup"); // setup | game | end | online
+  const [screen, setScreen] = useState("setup"); // setup | game | end
+  const [lobbyView, setLobbyView] = useState("menu"); // menu | join
+  const [codeInput, setCodeInput] = useState("");
+  const [copied, setCopied] = useState(false);
   const [game, setGame] = useState(null);
   const [msg, setMsg] = useState("");
   const [screenW, setScreenW] = useState(typeof window !== "undefined" ? window.innerWidth : 400);
-  const [isOnline, setIsOnline] = useState(false);
   const [myPlayerIndex, setMyPlayerIndex] = useState(null);
   const [opponentGone, setOpponentGone] = useState(false);
   const [turnTimer, setTurnTimer] = useState(null);
   const timerRef = useRef(null);
+  const passRef = useRef(null);
   const hostPushedRef = useRef(false);
   useEffect(() => { const h = () => setScreenW(window.innerWidth); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
 
@@ -344,11 +241,10 @@ export default function DomiMo({ onBack }) {
     }
   }, [game?.scoredIds]);
 
-  // ── Multiplayer hook ──
+  // ── Multiplayer hook (single instance) ──
   const handleRemoteState = useCallback((rawGs, myIdx) => {
     const gs = fromRaw(rawGs);
     setMyPlayerIndex(myIdx);
-    setIsOnline(true);
     if (gs.phase === "ended") setScreen("end");
     else setScreen("game");
     setGame(gs);
@@ -394,49 +290,59 @@ export default function DomiMo({ onBack }) {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [screen, roomCode]);
 
-  // ── Local game start ──
-  const start = useCallback(() => {
-    setIsOnline(false);
-    setMyPlayerIndex(null);
-    setGame(initG());
-    setScreen("game");
-    setMsg("Player 1 — play any tile");
-  }, []);
+  // ── Lobby helpers ──
+  const copyCode = useCallback(() => {
+    if (!roomCode) return;
+    navigator.clipboard.writeText(roomCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [roomCode]);
+
+  const handleCancel = useCallback(async () => {
+    await leaveMatch();
+    setLobbyView("menu");
+    setCodeInput("");
+  }, [leaveMatch]);
+
+  const backToSetup = useCallback(async () => {
+    await leaveMatch();
+    setScreen("setup");
+    setLobbyView("menu");
+    setCodeInput("");
+    setGame(null);
+    setOpponentGone(false);
+  }, [leaveMatch]);
 
   const ends = useMemo(() => game?.chain ? getEnds(game.chain) : [], [game?.chain]);
-  const curT = useMemo(() => game ? game.players[game.cur].tiles : [], [game]);
 
-  // In online mode, show opponent hand as empty (hidden)
   const myHand = useMemo(() => {
-    if (!isOnline || myPlayerIndex === null) return curT;
-    return game ? game.players[myPlayerIndex].tiles : [];
-  }, [game, isOnline, myPlayerIndex, curT]);
+    if (myPlayerIndex === null || !game) return [];
+    return game.players[myPlayerIndex].tiles;
+  }, [game, myPlayerIndex]);
 
   const isMyTurn = useMemo(() => {
-    if (!isOnline || myPlayerIndex === null) return true;
+    if (myPlayerIndex === null) return false;
     return game?.cur === myPlayerIndex;
-  }, [game, isOnline, myPlayerIndex]);
+  }, [game, myPlayerIndex]);
 
   const playable = useMemo(() => {
     if (!game) return [];
-    const hand = isOnline ? myHand : curT;
-    return game.chain ? findPlay(hand, ends) : hand;
-  }, [game, myHand, curT, ends, isOnline]);
+    return game.chain ? findPlay(myHand, ends) : myHand;
+  }, [game, myHand, ends]);
 
   const compat = useMemo(() => game?.sel && game.chain ? getCompat(game.sel, ends) : [], [game?.sel, ends]);
   const playableIds = useMemo(() => new Set(playable.map(t => t.id)), [playable]);
 
   const sortedHand = useMemo(() => {
-    const hand = isOnline ? myHand : curT;
-    return [...hand].sort((a, b) => {
+    return [...myHand].sort((a, b) => {
       const ca = SYL.indexOf(a.connector), cb = SYL.indexOf(b.connector);
       if (ca !== cb) return ca - cb;
       return SYL.indexOf(a.payload) - SYL.indexOf(b.payload);
     });
-  }, [curT, myHand, isOnline]);
+  }, [myHand]);
 
   function placeTile(g, tile, endSide, preConn, prePay) {
-    const activePl = isOnline ? myPlayerIndex : g.cur;
+    const activePl = myPlayerIndex;
     const ch = g.chain ? g.chain.map(n => ({ ...n })) : [];
     const pn = prePay || mkN(tile.payload, activePl);
     if (!g.chain) ch.push(preConn || mkN(tile.connector, activePl), pn);
@@ -461,79 +367,77 @@ export default function DomiMo({ onBack }) {
     }
     let nextMsg;
     if (ended) nextMsg = "Mantra complete! 🏆";
-    else if (canStreak) nextMsg = isOnline ? `+${sc.pts} (${sc.syls.join("→")}) — streak! Go again` : `${PN[activePl]} +${sc.pts} (${sc.syls.join("→")}) — streak!`;
-    else if (scored) nextMsg = isOnline ? `+${sc.pts} (${sc.syls.join("→")})! Opponent's turn` : `${PN[activePl]} +${sc.pts} (${sc.syls.join("→")})! ${PN[nx]}'s turn`;
-    else nextMsg = isOnline ? (nx === myPlayerIndex ? "Your turn" : "Opponent's turn...") : `${PN[nx]}'s turn`;
+    else if (canStreak) nextMsg = `+${sc.pts} (${sc.syls.join("→")}) — streak! Go again`;
+    else if (scored) nextMsg = `+${sc.pts} (${sc.syls.join("→")})! Opponent's turn`;
+    else nextMsg = nx === myPlayerIndex ? "Your turn" : "Opponent's turn...";
     if (ended) { setScreen("end"); setMsg("Mantra complete! 🏆"); }
     else setMsg(nextMsg);
     const newG = { ...g, chain: ch, players: npl, sel: null, cur: nx, passes: 0, draws: 0, progress: np, recs: nr, phase: ended ? "ended" : "playing", firstRec: nfr, placed: tp, lastDraw: null, streak: newStreak, scoredIds };
-    if (isOnline) pushGameState(toRaw(newG));
+    pushGameState(toRaw(newG));
     return newG;
   }
 
   const selTile = useCallback((tile) => {
     if (!game || game.phase === "ended") return;
-    if (isOnline && !isMyTurn) return;
+    if (!isMyTurn) return;
     if (game.sel?.id === tile.id) { setGame(g => ({ ...g, sel: null })); return; }
     if (!game.chain) {
-      const activePl = isOnline ? myPlayerIndex : game.cur;
-      const cn = mkN(tile.connector, activePl);
-      const pn = mkN(tile.payload, activePl);
+      const cn = mkN(tile.connector, myPlayerIndex);
+      const pn = mkN(tile.payload, myPlayerIndex);
       setGame(g => placeTile(g, tile, "right", cn, pn));
       return;
     }
     setGame(g => ({ ...g, sel: tile }));
-  }, [game, isOnline, isMyTurn, myPlayerIndex]);
+  }, [game, isMyTurn, myPlayerIndex]);
 
   const placeOn = useCallback((end) => {
     if (!game?.sel) return;
-    const activePl = isOnline ? myPlayerIndex : game.cur;
-    const pn = mkN(game.sel.payload, activePl);
+    const pn = mkN(game.sel.payload, myPlayerIndex);
     setGame(g => placeTile(g, g.sel, end.side, null, pn));
-  }, [game, isOnline, myPlayerIndex]);
+  }, [game, myPlayerIndex]);
 
   const drawTile = useCallback(() => {
     if (!game || game.draws >= 1 || !game.pool.length) return;
-    if (isOnline && !isMyTurn) return;
+    if (!isMyTurn) return;
     setGame(g => {
-      const activePl = isOnline ? myPlayerIndex : g.cur;
       const np = [...g.pool];
       const drawn = [];
       for (let i = 0; i < 3 && np.length; i++) drawn.push(np.pop());
-      const nt = [...g.players[activePl].tiles, ...drawn];
-      const npl = g.players.map((p, i) => i === activePl ? { ...p, tiles: nt } : { ...p });
+      const nt = [...g.players[myPlayerIndex].tiles, ...drawn];
+      const npl = g.players.map((p, i) => i === myPlayerIndex ? { ...p, tiles: nt } : { ...p });
       const es = getEnds(g.chain);
       const anyPlayable = drawn.some(d => es.some(e => e.node.syllable === d.connector));
       const names = drawn.map(d => `${d.connector}→${d.payload}`).join(", ");
       setMsg(anyPlayable ? `Drew 3: ${names} — check your hand!` : `Drew 3: ${names}. No match — pass.`);
       const newG = { ...g, pool: np, players: npl, draws: 1, lastDraw: drawn[drawn.length - 1] };
-      if (isOnline) pushGameState(toRaw(newG));
+      pushGameState(toRaw(newG));
       return newG;
     });
-  }, [game, isOnline, isMyTurn, myPlayerIndex, pushGameState]);
+  }, [game, isMyTurn, myPlayerIndex, pushGameState]);
 
   const pass = useCallback(() => {
     if (!game) return;
-    if (isOnline && !isMyTurn) return;
+    if (!isMyTurn) return;
     setGame(g => {
-      const activePl = isOnline ? myPlayerIndex : g.cur;
       const np = g.passes + 1;
       if (np >= 2) {
         setScreen("end"); setMsg("Two passes — Game Over!");
         const newG = { ...g, passes: np, phase: "ended" };
-        if (isOnline) pushGameState(toRaw(newG));
+        pushGameState(toRaw(newG));
         return newG;
       }
-      const nx = activePl ^ 1;
-      const nextMsg = isOnline ? "Opponent's turn..." : `${PN[activePl]} passes. ${PN[nx]}'s turn.`;
-      setMsg(nextMsg);
+      const nx = myPlayerIndex ^ 1;
+      setMsg("Opponent's turn...");
       const newG = { ...g, cur: nx, passes: np, draws: 0, sel: null, lastDraw: null };
-      if (isOnline) pushGameState(toRaw(newG));
+      pushGameState(toRaw(newG));
       return newG;
     });
-  }, [game, isOnline, isMyTurn, myPlayerIndex, pushGameState]);
+  }, [game, isMyTurn, myPlayerIndex, pushGameState]);
 
-  // Turn timer — 20s, auto-pass on expire
+  // Keep passRef in sync so timer doesn't depend on pass identity
+  useEffect(() => { passRef.current = pass; }, [pass]);
+
+  // Turn timer — 20s, auto-pass on expire. Only depends on isMyTurn & screen, not pass.
   useEffect(() => {
     if (screen !== "game" || !game || game.phase === "ended") {
       clearInterval(timerRef.current);
@@ -547,7 +451,7 @@ export default function DomiMo({ onBack }) {
         setTurnTimer(t => {
           if (t <= 1) {
             clearInterval(timerRef.current);
-            pass();
+            passRef.current?.();
             return null;
           }
           return t - 1;
@@ -558,7 +462,7 @@ export default function DomiMo({ onBack }) {
       setTurnTimer(null);
     }
     return () => clearInterval(timerRef.current);
-  }, [isMyTurn, screen, game?.phase, pass]);
+  }, [isMyTurn, screen, game?.phase]);
 
   const canDraw = game && !playable.length && game.draws < 1 && game.pool.length > 0 && isMyTurn;
   const winner = useMemo(() => {
@@ -585,15 +489,6 @@ export default function DomiMo({ onBack }) {
       </div>
     );
   };
-
-  const handleOnlineStart = useCallback((gs, myIdx, push) => {
-    setIsOnline(true);
-    setMyPlayerIndex(myIdx);
-    const g = fromRaw(gs);
-    setGame(g);
-    setScreen("game");
-    setMsg(myIdx === g.cur ? "Your turn — play any tile" : "Opponent's turn...");
-  }, []);
 
   const F = "'Space Mono',monospace";
 
@@ -623,7 +518,7 @@ export default function DomiMo({ onBack }) {
         <div style={{ position: "absolute", top: "10%", left: "50%", transform: "translateX(-50%)", width: "180%", height: "80%", background: "radial-gradient(ellipse at 50% 50%, #28336A 0%, transparent 60%)" }} />
       </div>
 
-      {/* ── SETUP ── */}
+      {/* ── SETUP (with inline lobby) ── */}
       {screen === "setup" && (
         <div style={{ position: "relative", zIndex: 3, maxWidth: 520, margin: "0 auto", padding: "32px 16px 60px", textAlign: "center", animation: "fadeIn 0.5s" }}>
           <div style={{ textAlign: "left", marginBottom: 20 }}><button className="dm-s" onClick={onBack}>← Mo Oracle</button></div>
@@ -632,23 +527,69 @@ export default function DomiMo({ onBack }) {
           <p style={{ fontSize: 10, letterSpacing: 5, color: P.tM, fontFamily: F, marginTop: 4, marginBottom: 22 }}>TIBETAN MANTRA DOMINOS</p>
           <MantraAnim />
 
-          {/* MODE SELECTOR */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
-            {/* LOCAL */}
-            <div style={{ background: "#1E2850", border: `1px solid ${P.royalBlue}25`, padding: "20px 16px", textAlign: "center" }}>
-              <div style={{ fontSize: 22, marginBottom: 8 }}>🎲</div>
-              <div style={{ fontSize: 11, fontFamily: F, color: P.bGold, fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>LOCAL</div>
-              <div style={{ fontSize: 12, color: P.t2, lineHeight: 1.6, marginBottom: 16 }}>Play on the same device — pass and play</div>
-              <button className="dm-b" onClick={start} style={{ fontSize: 11, padding: "10px 20px" }}>Start</button>
-            </div>
-            {/* ONLINE */}
-            <div style={{ background: "#1E2850", border: `1px solid ${P.royalBlue}25`, padding: "20px 16px", textAlign: "center" }}>
-              <div style={{ fontSize: 22, marginBottom: 8 }}>🌐</div>
-              <div style={{ fontSize: 11, fontFamily: F, color: P.bGold, fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>ONLINE</div>
-              <div style={{ fontSize: 12, color: P.t2, lineHeight: 1.6, marginBottom: 16 }}>Play with anyone, anywhere</div>
-              <button className="dm-b" onClick={() => setScreen("online")} style={{ fontSize: 11, padding: "10px 20px" }}>Play</button>
-            </div>
-          </div>
+          {/* ── LOBBY ── */}
+          {(() => {
+            // Waiting / searching state
+            if (mpStatus === "waiting" || mpStatus === "searching") {
+              return (
+                <div style={{ background: "#1E2850", border: `1px solid ${P.royalBlue}25`, padding: "28px 20px", marginBottom: 24 }}>
+                  <div style={{ fontSize: 9, letterSpacing: 5, color: P.tM, fontFamily: F, marginBottom: 20 }}>
+                    {mpStatus === "searching" ? "SEARCHING..." : "WAITING FOR OPPONENT"}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 28 }}>
+                    {[0, 1, 2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: P.bGold, animation: `pulse 1.2s ease ${i * 0.4}s infinite`, opacity: 0.6 }} />)}
+                  </div>
+                  {roomCode && (
+                    <div style={{ marginBottom: 28 }}>
+                      <div style={{ fontSize: 10, color: P.tM, fontFamily: F, letterSpacing: 3, marginBottom: 10 }}>ROOM CODE</div>
+                      <div style={{ fontSize: 28, fontFamily: F, fontWeight: 700, color: P.bGold, letterSpacing: 4, marginBottom: 12 }}>{roomCode}</div>
+                      <button onClick={copyCode} style={{ background: copied ? `${P.green}22` : `${P.gold}18`, color: copied ? P.green : P.t2, border: `1px solid ${copied ? P.green : P.gold}44`, fontFamily: F, fontSize: 9, padding: "5px 14px", cursor: "pointer", letterSpacing: 2 }}>
+                        {copied ? "COPIED ✓" : "COPY CODE"}
+                      </button>
+                      <div style={{ fontSize: 11, color: P.tM, marginTop: 10 }}>Share this code with your opponent</div>
+                    </div>
+                  )}
+                  <button className="dm-s" onClick={handleCancel}>← Cancel</button>
+                </div>
+              );
+            }
+
+            // Join by code view
+            if (lobbyView === "join") {
+              return (
+                <div style={{ background: "#1E2850", border: `1px solid ${P.royalBlue}25`, padding: "24px 20px", marginBottom: 24 }}>
+                  <div style={{ fontSize: 11, color: P.tM, fontFamily: F, letterSpacing: 3, marginBottom: 16 }}>ENTER ROOM CODE</div>
+                  <input
+                    value={codeInput}
+                    onChange={e => setCodeInput(e.target.value.toUpperCase())}
+                    onKeyDown={e => e.key === "Enter" && codeInput.trim() && joinByCode(codeInput.trim())}
+                    placeholder="AH-RA-PA-TSA"
+                    style={{ background: `${P.navy}AA`, border: `1px solid ${P.gold}44`, color: P.t1, fontFamily: F, fontSize: 16, padding: "10px 16px", width: "100%", textAlign: "center", letterSpacing: 3, marginBottom: 16, outline: "none" }}
+                  />
+                  {mpError && <div style={{ fontSize: 10, color: P.red, fontFamily: F, marginBottom: 12 }}>{mpError}</div>}
+                  <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                    <button className="dm-b" onClick={() => codeInput.trim() && joinByCode(codeInput.trim())} disabled={!codeInput.trim()}>Join</button>
+                    <button className="dm-s" onClick={() => { setLobbyView("menu"); setCodeInput(""); }}>← Back</button>
+                  </div>
+                </div>
+              );
+            }
+
+            // Default lobby menu
+            return (
+              <div style={{ background: "#1E2850", border: `1px solid ${P.royalBlue}25`, padding: "24px 20px", marginBottom: 24 }}>
+                {mpError && <div style={{ fontSize: 10, color: P.red, fontFamily: F, marginBottom: 16, padding: "8px", background: `${P.red}11`, border: `1px solid ${P.red}33` }}>{mpError}</div>}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+                  <button className="dm-b" onClick={quickMatch} style={{ width: 220 }}>⚡ Quick Match</button>
+                  <button className="dm-s" onClick={createRoom} style={{ width: 220 }}>Create Room</button>
+                  <button className="dm-s" onClick={() => setLobbyView("join")} style={{ width: 220 }}>Join with Code</button>
+                </div>
+                <div style={{ fontSize: 10, color: P.tM + "88", fontFamily: F, marginTop: 20, lineHeight: 1.8 }}>
+                  Quick Match: auto-pair with a waiting player<br />or create a room if none found
+                </div>
+              </div>
+            );
+          })()}
 
           {/* MANTRA MEANING */}
           <div style={{ background: `${P.royalBlue}12`, border: `1px solid ${P.bGold}22`, padding: "16px 14px", marginBottom: 22, textAlign: "center" }}>
@@ -677,21 +618,6 @@ export default function DomiMo({ onBack }) {
         </div>
       )}
 
-      {/* ── ONLINE LOBBY ── */}
-      {screen === "online" && (
-        <div style={{ position: "relative", zIndex: 3, maxWidth: 480, margin: "0 auto", padding: "32px 16px 60px", animation: "fadeIn 0.5s" }}>
-          <div style={{ marginBottom: 20 }}><button className="dm-s" onClick={() => setScreen("setup")}>← Back</button></div>
-          <div style={{ fontSize: 9, letterSpacing: 6, color: P.tM, fontFamily: F, textAlign: "center" }}>ONLINE</div>
-          <h2 style={{ fontSize: 28, fontWeight: 700, color: P.bGold, lineHeight: 1, fontFamily: F, textAlign: "center", marginBottom: 28 }}>DOMI-MO</h2>
-          <div style={{ background: "#1E2850", border: `1px solid ${P.royalBlue}25`, padding: "24px" }}>
-            <OnlineLobby
-              onStartOnline={handleOnlineStart}
-              onBack={() => setScreen("setup")}
-            />
-          </div>
-        </div>
-      )}
-
       {/* ── GAME ── */}
       {screen === "game" && game && (() => {
         const isMobile = screenW < 600;
@@ -701,8 +627,8 @@ export default function DomiMo({ onBack }) {
         const containerW = Math.min(screenW, isMobile ? 500 : 820);
         const rawTW = Math.floor((containerW - hPad * 2 - (cols - 1) * hGap) / cols);
         const tW = isMobile ? Math.min(rawTW, 84) : Math.min(rawTW, 168);
-        const activePl = isOnline ? myPlayerIndex : game.cur;
-        const displayPl = isOnline ? myPlayerIndex : game.cur;
+        const activePl = myPlayerIndex;
+        const displayPl = myPlayerIndex;
 
         return (
           <div style={{ position: "fixed", inset: 0, zIndex: 3, display: "flex", flexDirection: "column", maxWidth: "100vw", overflow: "hidden" }}>
@@ -710,22 +636,21 @@ export default function DomiMo({ onBack }) {
             <div style={{ background: "#131A2E", borderBottom: `1px solid ${P.gold}18`, padding: "5px 10px 6px", flexShrink: 0 }}>
               <div style={{ display: "flex", height: 3, marginBottom: 4 }}>{FC.map((c, i) => <div key={i} style={{ flex: 1, background: c }} />)}</div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                <button onClick={async () => { if (isOnline) await leaveMatch(); setScreen("setup"); setGame(null); setIsOnline(false); }} style={{ background: "none", border: "none", color: P.tM, fontSize: 10, fontFamily: F, cursor: "pointer" }}>← EXIT</button>
+                <button onClick={backToSetup} style={{ background: "none", border: "none", color: P.tM, fontSize: 10, fontFamily: F, cursor: "pointer" }}>← EXIT</button>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  {isOnline && roomCode && <span style={{ fontSize: 9, fontFamily: F, color: P.tM + "88", letterSpacing: 1 }}>{roomCode}</span>}
+                  {roomCode && <span style={{ fontSize: 9, fontFamily: F, color: P.tM + "88", letterSpacing: 1 }}>{roomCode}</span>}
                   <span style={{ fontSize: 10, fontFamily: F, color: P.saffron }}>MALA {game.pool.length}</span>
                 </div>
               </div>
               <MantraBar progress={game.progress} recs={game.recs} compact scoredSyls={game.scoredIds ? new Set(game.chain?.filter(n => game.scoredIds.has(n.id)).map(n => n.syllable) || []) : null} />
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 4 }}>
                 {game.players.map((p, i) => {
-                  const isMe = isOnline ? i === myPlayerIndex : i === game.cur;
-                  const isActive = isOnline ? i === game.cur : i === game.cur;
+                  const isMe = i === myPlayerIndex;
+                  const isActive = i === game.cur;
                   return <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, opacity: isActive ? 1 : 0.4 }}>
                     <div style={{ width: 7, height: 7, borderRadius: "50%", background: PC[i] }} />
                     <span style={{ fontSize: 20, fontFamily: F, fontWeight: 700, color: PC[i] }}>{p.score}</span>
-                    {isOnline && <span style={{ fontSize: 7, fontFamily: F, color: PC[i] + "88" }}>{isMe ? "YOU" : "OPP"}</span>}
-                    {!isOnline && <span style={{ fontSize: 8, fontFamily: F, color: P.tM + "88" }}>{p.tiles.length}</span>}
+                    <span style={{ fontSize: 7, fontFamily: F, color: PC[i] + "88" }}>{isMe ? "YOU" : "OPP"}</span>
                   </div>;
                 })}
               </div>
@@ -744,9 +669,9 @@ export default function DomiMo({ onBack }) {
             <div style={{ flex: 1, background: "#111830", borderTop: `1px solid ${P.gold}10`, padding: isMobile ? "4px 6px" : "8px 20px", overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isMobile ? 3 : 6, flexShrink: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: isOnline ? PC[myPlayerIndex ?? 0] : PC[game.cur] }} />
-                  <span style={{ fontSize: 10, fontFamily: F, color: isOnline ? PC[myPlayerIndex ?? 0] : PC[game.cur], fontWeight: 700, letterSpacing: 2 }}>
-                    {isOnline ? "YOUR HAND" : PN[game.cur]}
+                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: PC[myPlayerIndex ?? 0] }} />
+                  <span style={{ fontSize: 10, fontFamily: F, color: PC[myPlayerIndex ?? 0], fontWeight: 700, letterSpacing: 2 }}>
+                    {"YOUR HAND"}
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -780,7 +705,7 @@ export default function DomiMo({ onBack }) {
             {opponentGone && (
               <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: "#0D1225EE", border: `1px solid ${P.red}44`, padding: "24px 32px", textAlign: "center", zIndex: 10 }}>
                 <div style={{ fontSize: 12, fontFamily: F, color: P.red, letterSpacing: 2, marginBottom: 12 }}>OPPONENT DISCONNECTED</div>
-                <button className="dm-b" onClick={() => { leaveMatch(); setScreen("setup"); setGame(null); setIsOnline(false); setOpponentGone(false); }}>← Back to Menu</button>
+                <button className="dm-b" onClick={backToSetup}>← Back to Menu</button>
               </div>
             )}
           </div>
@@ -793,26 +718,25 @@ export default function DomiMo({ onBack }) {
           <div style={{ fontSize: 9, letterSpacing: 6, color: P.tM, fontFamily: F }}>TCCT</div>
           <h1 style={{ fontSize: 36, fontWeight: 700, color: P.bGold, lineHeight: 1, fontFamily: F, marginBottom: 6 }}>GAME OVER</h1>
           <div style={{ margin: "16px 0" }}><MantraBar progress={game.progress} recs={game.recs} /></div>
-          {isOnline && myPlayerIndex !== null && (
+          {myPlayerIndex !== null && (
             <div style={{ fontSize: 13, fontFamily: F, color: winner === myPlayerIndex ? P.bGold : P.tM, letterSpacing: 2, marginBottom: 8 }}>
               {winner === myPlayerIndex ? "🏆 YOU WIN" : winner === null ? "DRAW" : "YOU LOSE"}
             </div>
           )}
-          {winner !== null ? <div style={{ fontSize: 22, color: PC[winner], fontFamily: F, fontWeight: 700, marginBottom: 22 }}>{isOnline ? `Player ${winner + 1} wins` : `${PN[winner]} Wins!`}</div>
+          {winner !== null ? <div style={{ fontSize: 22, color: PC[winner], fontFamily: F, fontWeight: 700, marginBottom: 22 }}>{`Player ${winner + 1} wins`}</div>
             : <div style={{ fontSize: 22, color: P.teal, fontFamily: F, fontWeight: 700, marginBottom: 22 }}>Tie!</div>}
           <div style={{ display: "flex", gap: 14, justifyContent: "center", marginBottom: 28 }}>
             {game.players.map((p, i) => (
               <div key={i} style={{ padding: "16px 26px", border: `2px solid ${winner === i ? PC[i] : P.gold + "20"}`, background: winner === i ? `${PC[i]}10` : "transparent", minWidth: 120 }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: PC[i], margin: "0 auto 6px" }} />
-                <div style={{ fontSize: 10, fontFamily: F, color: PC[i], letterSpacing: 2 }}>{isOnline ? (i === myPlayerIndex ? "YOU" : "OPPONENT") : PN[i]}</div>
+                <div style={{ fontSize: 10, fontFamily: F, color: PC[i], letterSpacing: 2 }}>{i === myPlayerIndex ? "YOU" : "OPPONENT"}</div>
                 <div style={{ fontSize: 36, fontFamily: F, fontWeight: 700, color: PC[i], margin: "4px 0" }}>{p.score}</div>
                 <div style={{ fontSize: 9, color: P.tM, fontFamily: F }}>{game.placed[i]} played · {p.tiles.length} left</div>
               </div>
             ))}
           </div>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexDirection: "column", alignItems: "center" }}>
-            {!isOnline && <button className="dm-b" onClick={() => { setGame(initG()); setScreen("game"); setMsg("Player 1 — play any tile"); }}>Play Again</button>}
-            <button className="dm-s" onClick={async () => { if (isOnline) await leaveMatch(); setScreen("setup"); setGame(null); setIsOnline(false); }}>← Menu</button>
+            <button className="dm-s" onClick={backToSetup}>← Menu</button>
           </div>
           <footer style={{ marginTop: 36 }}><div style={{ display: "flex", height: 3 }}>{FC.map((c, i) => <div key={i} style={{ flex: 1, background: c }} />)}</div><p style={{ fontSize: 8, color: P.tM, fontFamily: F, marginTop: 8 }}>Domi-Mo · TCCT</p></footer>
         </div>
