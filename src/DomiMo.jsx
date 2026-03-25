@@ -66,11 +66,54 @@ function doSc(ch, nid, cp, pls, prog, recs, fr) {
 const toRaw = g => ({ ...g, progress: [...(g.progress instanceof Set ? g.progress : new Set(g.progress || []))] });
 const fromRaw = g => ({ ...g, progress: new Set(g.progress || []) });
 
+// ── Background scene (ported from MoDivination) ─────────────────────────────
+function Cld({x,y,s=1,color="#F5ECD7",opacity=0.06,flip=false}){
+  return <g transform={`translate(${x},${y}) scale(${flip?-s:s},${s})`}><path d="M0 22C2 16 6 12 12 14C14 8 20 4 28 8C32 2 40 0 46 6C50 2 56 4 58 10C62 8 66 12 64 18C68 22 66 28 60 30C58 34 52 36 46 33C42 36 34 38 28 34C22 38 14 36 10 32C4 34 0 28 0 22Z" fill={color} opacity={opacity}/></g>;
+}
+function DomiMoScene(){
+  return(
+    <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}>
+      <div style={{position:"absolute",inset:0,background:"#1C2248"}}/>
+      <div style={{position:"absolute",top:"5%",left:"50%",transform:"translateX(-50%)",width:"200%",height:"90%",
+        background:"radial-gradient(ellipse at 50% 55%, #30285066 0%, transparent 55%)"}}/>
+      <div style={{position:"absolute",top:"20%",left:"50%",transform:"translateX(-50%)",width:"160%",height:"60%",
+        background:"radial-gradient(ellipse at 50% 65%, #5B1A3030 0%, transparent 55%)"}}/>
+      <div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:"120%",height:"50%",
+        background:`radial-gradient(ellipse at 50% 60%, ${P.gold}10 0%, transparent 50%)`}}/>
+      <div style={{position:"absolute",bottom:"20%",left:"50%",transform:"translateX(-50%)",width:"180%",height:"35%",
+        background:"radial-gradient(ellipse at 50% 80%, #D4A01718 0%, transparent 50%)"}}/>
+      <div style={{position:"absolute",bottom:0,left:0,right:0,height:"45%",
+        background:"linear-gradient(to top, #1E1835 0%, transparent 100%)"}}/>
+      <div style={{position:"absolute",top:"10%",left:"50%",transform:"translateX(-50%)",width:"220%",height:"70%",
+        background:"radial-gradient(ellipse at 50% 45%, #30284828 0%, transparent 45%)"}}/>
+      {/* Mountains */}
+      <svg style={{position:"absolute",bottom:0,left:0,width:"100%",height:"55%"}} viewBox="0 0 800 400" preserveAspectRatio="xMidYMax slice">
+        <path d="M0 400L0 230C60 160 140 200 220 180C300 160 360 130 440 190C520 150 600 170 680 150C730 140 760 160 800 200L800 400Z" fill="#1A2242" opacity={0.75}/>
+      </svg>
+      <svg style={{position:"absolute",bottom:0,left:0,width:"100%",height:"45%"}} viewBox="0 0 800 400" preserveAspectRatio="xMidYMax slice">
+        <path d="M0 400L0 280C100 230 200 260 300 250C400 240 480 220 560 245C640 230 720 240 800 250L800 400Z" fill="#5B1A30" opacity={0.18}/>
+      </svg>
+      {/* Clouds */}
+      <svg style={{position:"absolute",top:0,left:0,width:"100%",height:"100%"}} viewBox="0 0 800 900" preserveAspectRatio="xMidYMid slice">
+        <Cld x={-30} y={40} s={4} opacity={0.07}/><Cld x={500} y={80} s={3.5} flip opacity={0.06}/>
+        <Cld x={60} y={350} s={3.2} opacity={0.045}/><Cld x={420} y={450} s={3.8} flip opacity={0.04}/>
+      </svg>
+      <svg style={{position:"absolute",top:0,left:0,width:"100%",height:"100%"}} viewBox="0 0 800 900" preserveAspectRatio="xMidYMid slice">
+        <Cld x={150} y={120} s={2} color={P.gold} opacity={0.02}/><Cld x={450} y={350} s={1.8} color={P.gold} flip opacity={0.018}/>
+      </svg>
+      {/* Dots + scanlines */}
+      <svg style={{position:"absolute",inset:0,opacity:0.03}} width="100%" height="100%"><defs><pattern id="ddots" width="60" height="60" patternUnits="userSpaceOnUse"><circle cx="30" cy="30" r="0.6" fill={P.gold}/></pattern></defs><rect width="100%" height="100%" fill="url(#ddots)"/></svg>
+      <div style={{position:"absolute",inset:0,opacity:0.012,background:"repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.03) 2px,rgba(255,255,255,0.03) 4px)"}}/>
+    </div>
+  );
+}
+
 // ── UI components ──────────────────────────────────────────────────────────────
 function ChainBoard({ chain, compatEnds, onEndClick, screenW, scoredIds }) {
   if (!chain) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", fontSize: 15, color: P.tM + "88", fontStyle: "italic", fontFamily: "'Space Mono',monospace" }}>Play a tile to start</div>;
   const len = chain.length;
-  const GAP = 2, EDGE = 34, VIS = 5, DOT = 4, MAX_DOTS = 2;
+  const isDesktop = screenW >= 600;
+  const GAP = isDesktop ? 3 : 2, EDGE = isDesktop ? 52 : 34, VIS = 5, DOT = isDesktop ? 6 : 4, MAX_DOTS = 2;
   const midCount = Math.max(0, len - Math.min(VIS * 2, len));
   const dotsToShow = Math.min(midCount, MAX_DOTS);
   const cSet = new Set(compatEnds.map(e => `${e.node.id}:${e.side}`));
@@ -100,9 +143,9 @@ function ChainBoard({ chain, compatEnds, onEndClick, screenW, scoredIds }) {
         boxShadow: click ? `0 0 16px ${P.yellow}55` : isScored ? `0 0 20px ${SC[si]}55` : isEnd ? `0 0 6px ${SC[si]}22` : "none",
         animation: click ? "ep 1.4s ease infinite" : isScored ? "scoreFlash 1s ease" : "none",
       }}>
-        <span style={{ fontSize: 10, color: SC[si], fontFamily: "'Space Mono',monospace", fontWeight: 700, lineHeight: 1 }}>{nd.syllable}</span>
-        <span style={{ fontSize: 14, color: SC[si], lineHeight: 1, marginTop: 1 }}>{TIB[si]}</span>
-        <div style={{ position: "absolute", bottom: 1, right: 1, width: 3, height: 3, borderRadius: "50%", background: PC[nd.placedBy] }} />
+        <span style={{ fontSize: isDesktop ? 14 : 10, color: SC[si], fontFamily: "'Space Mono',monospace", fontWeight: 700, lineHeight: 1 }}>{nd.syllable}</span>
+        <span style={{ fontSize: isDesktop ? 22 : 14, color: SC[si], lineHeight: 1, marginTop: 1 }}>{TIB[si]}</span>
+        <div style={{ position: "absolute", bottom: 1, right: 1, width: isDesktop ? 4 : 3, height: isDesktop ? 4 : 3, borderRadius: "50%", background: PC[nd.placedBy] }} />
       </div>
     );
   };
@@ -128,20 +171,20 @@ function HTile({ tile, onClick, selected, lit, tileW, isDesktop }) {
     <div onClick={onClick} style={{
       display: "flex", alignItems: "center", padding: isDesktop ? "6px 5px" : (w < 80 ? "3px 2px" : "4px 3px"),
       width: w,
-      background: selected ? `${P.yellow}30` : lit ? `${P.navy}DD` : `${P.navy}55`,
-      border: selected ? `2px solid ${P.yellow}` : lit ? `2px solid ${SC[ci]}77` : `1px solid ${P.gold}22`,
+      background: selected ? `${P.yellow}30` : lit ? `${P.navy}DD` : `${P.navy}88`,
+      border: selected ? `2px solid ${P.yellow}` : lit ? `2px solid ${SC[ci]}77` : `1px solid ${P.gold}33`,
       cursor: onClick ? "pointer" : "default",
       boxShadow: selected ? `0 0 18px ${P.yellow}66, inset 0 0 10px ${P.yellow}18` : lit ? `0 0 8px ${SC[ci]}33` : "none",
-      opacity: dim ? 0.35 : 1, position: "relative", flexShrink: 0,
+      opacity: dim ? 0.65 : 1, position: "relative", flexShrink: 0,
     }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "1px 2px" }}>
-        <span style={{ fontSize: sylFontSize, color: SC[ci], fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{tile.connector}</span>
-        <span style={{ fontSize: tibFontSize, color: SC[ci], lineHeight: 1 }}>{TIB[ci]}</span>
+        <span style={{ fontSize: sylFontSize, color: dim ? SC[ci] + "CC" : SC[ci], fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{tile.connector}</span>
+        <span style={{ fontSize: tibFontSize, color: dim ? SC[ci] + "AA" : SC[ci], lineHeight: 1 }}>{TIB[ci]}</span>
       </div>
-      <div style={{ width: 1, height: divH, background: dim ? P.gold + "10" : P.gold + "33" }} />
+      <div style={{ width: 1, height: divH, background: dim ? P.gold + "20" : P.gold + "33" }} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "1px 2px" }}>
-        <span style={{ fontSize: sylFontSize, color: SC[pi], fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{tile.payload}</span>
-        <span style={{ fontSize: tibFontSize, color: SC[pi], lineHeight: 1 }}>{TIB[pi]}</span>
+        <span style={{ fontSize: sylFontSize, color: dim ? SC[pi] + "CC" : SC[pi], fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{tile.payload}</span>
+        <span style={{ fontSize: tibFontSize, color: dim ? SC[pi] + "AA" : SC[pi], lineHeight: 1 }}>{TIB[pi]}</span>
       </div>
       {tile.isDouble && <div style={{ position: "absolute", top: 0, right: 2, fontSize: 6, color: P.saffron + "BB" }}>⬥</div>}
     </div>
@@ -480,9 +523,9 @@ export default function DomiMo({ onBack }) {
         {MANTRA.map((s, i) => {
           const lit = prog.has(s), si = SYL.indexOf(s);
           const justScored = scoredSyls && scoredSyls.has(s);
-          return <div key={i} style={{ flex: compact ? 1 : undefined, width: compact ? undefined : 50, maxWidth: compact ? 60 : undefined, height: compact ? 42 : 48, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: lit ? `${SC[si]}30` : `${SC[si]}11`, borderBottom: `3px solid ${lit ? SC[si] : SC[si] + "88"}`, boxShadow: lit ? `0 0 18px ${SC[si]}55, inset 0 0 14px ${SC[si]}20` : "none", transition: "all 0.3s", animation: justScored ? "scorePulse 0.8s ease" : "none" }}>
-            <span style={{ fontSize: compact ? 12 : 13, color: lit ? SC[si] : SC[si] + "CC", fontFamily: "'Space Mono',monospace", fontWeight: 700, lineHeight: 1 }}>{s}</span>
-            <span style={{ fontSize: compact ? 16 : 20, color: lit ? SC[si] : SC[si] + "99", textShadow: lit ? `0 0 10px ${SC[si]}66` : "none", lineHeight: 1, marginTop: 2 }}>{TIB[si]}</span>
+          return <div key={i} style={{ flex: compact ? 1 : undefined, width: compact ? undefined : 50, maxWidth: compact ? 60 : undefined, height: compact ? 42 : 48, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: lit ? `${SC[si]}40` : `${SC[si]}18`, borderBottom: `3px solid ${lit ? SC[si] : SC[si] + "AA"}`, boxShadow: lit ? `0 0 22px ${SC[si]}66, inset 0 0 18px ${SC[si]}30` : "none", transition: "all 0.3s", animation: justScored ? "scorePulse 0.8s ease" : "none" }}>
+            <span style={{ fontSize: compact ? 12 : 13, color: lit ? SC[si] : SC[si] + "DD", fontFamily: "'Space Mono',monospace", fontWeight: 700, lineHeight: 1 }}>{s}</span>
+            <span style={{ fontSize: compact ? 16 : 20, color: lit ? SC[si] : SC[si] + "BB", textShadow: lit ? `0 0 12px ${SC[si]}88` : "none", lineHeight: 1, marginTop: 2 }}>{TIB[si]}</span>
           </div>;
         })}
         <div style={{ display: "flex", alignItems: "center", padding: "0 5px" }}><span style={{ fontSize: compact ? 12 : 13, fontFamily: "'Space Mono',monospace", color: P.bGold, fontWeight: 700 }}>{recs}/2</span></div>
@@ -513,10 +556,7 @@ export default function DomiMo({ onBack }) {
         ::-webkit-scrollbar-thumb{background:${P.gold}44;border-radius:2px}
       `}</style>
 
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
-        <div style={{ position: "absolute", inset: 0, background: "#1A2240" }} />
-        <div style={{ position: "absolute", top: "10%", left: "50%", transform: "translateX(-50%)", width: "180%", height: "80%", background: "radial-gradient(ellipse at 50% 50%, #28336A 0%, transparent 60%)" }} />
-      </div>
+      <DomiMoScene />
 
       {/* ── SETUP (with inline lobby) ── */}
       {screen === "setup" && (
@@ -632,8 +672,9 @@ export default function DomiMo({ onBack }) {
 
         return (
           <div style={{ position: "fixed", inset: 0, zIndex: 3, display: "flex", flexDirection: "column", maxWidth: "100vw", overflow: "hidden" }}>
+            <DomiMoScene />
             {/* TOP */}
-            <div style={{ background: "#131A2E", borderBottom: `1px solid ${P.gold}18`, padding: "5px 10px 6px", flexShrink: 0 }}>
+            <div style={{ background: "#131A2EDD", backdropFilter: "blur(8px)", borderBottom: `1px solid ${P.gold}22`, padding: "5px 10px 6px", flexShrink: 0, position: "relative", zIndex: 2 }}>
               <div style={{ display: "flex", height: 3, marginBottom: 4 }}>{FC.map((c, i) => <div key={i} style={{ flex: 1, background: c }} />)}</div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                 <button onClick={backToSetup} style={{ background: "none", border: "none", color: P.tM, fontSize: 10, fontFamily: F, cursor: "pointer" }}>← EXIT</button>
@@ -654,19 +695,19 @@ export default function DomiMo({ onBack }) {
                   </div>;
                 })}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, borderLeft: `3px solid ${isMyTurn ? PC[game.cur] : P.tM + "44"}`, background: isMyTurn ? `${PC[game.cur]}12` : "transparent", padding: "3px 6px 3px 10px" }}>
-                <span style={{ flex: 1, fontSize: 10, color: isMyTurn ? P.t1 : P.tM, fontFamily: F }}>{msg}</span>
-                {isMyTurn && turnTimer !== null && <span style={{ fontSize: 11, fontFamily: F, fontWeight: 700, color: turnTimer <= 5 ? P.red : turnTimer <= 10 ? P.saffron : P.tM }}>{turnTimer}s</span>}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, borderLeft: `3px solid ${isMyTurn ? PC[game.cur] : P.tM + "44"}`, background: isMyTurn ? `${PC[game.cur]}12` : "transparent", padding: "5px 8px 5px 12px" }}>
+                <span style={{ flex: 1, fontSize: 13, color: isMyTurn ? P.t1 : P.tM, fontFamily: F, fontWeight: 600 }}>{msg}</span>
+                {isMyTurn && turnTimer !== null && <span style={{ fontSize: 18, fontFamily: F, fontWeight: 700, color: turnTimer <= 5 ? P.red : turnTimer <= 10 ? P.saffron : P.tM }}>{turnTimer}s</span>}
               </div>
             </div>
 
             {/* BOARD */}
-            <div style={{ height: isMobile ? "32vh" : "40vh", flexShrink: 0, background: "#1C2848", overflow: "hidden", borderBottom: `1px solid ${P.gold}10` }}>
+            <div style={{ height: isMobile ? "32vh" : "40vh", flexShrink: 0, background: "transparent", overflow: "hidden", borderBottom: `1px solid ${P.gold}15`, position: "relative", zIndex: 1 }}>
               <ChainBoard chain={game.chain} compatEnds={isMyTurn ? compat : []} onEndClick={isMyTurn ? placeOn : () => {}} screenW={screenW} scoredIds={game.scoredIds} />
             </div>
 
             {/* HAND */}
-            <div style={{ flex: 1, background: "#111830", borderTop: `1px solid ${P.gold}10`, padding: isMobile ? "4px 6px" : "8px 20px", overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <div style={{ flex: 1, background: "#111830DD", backdropFilter: "blur(8px)", borderTop: `1px solid ${P.gold}22`, padding: isMobile ? "4px 6px" : "8px 20px", overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0, position: "relative", zIndex: 2 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isMobile ? 3 : 6, flexShrink: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                   <div style={{ width: 7, height: 7, borderRadius: "50%", background: PC[myPlayerIndex ?? 0] }} />
@@ -688,7 +729,7 @@ export default function DomiMo({ onBack }) {
               </div>
 
               {/* Hand always visible — dimmed + locked on opponent turn */}
-              <div style={{ flex: 1, overflowY: "auto", minHeight: 0, opacity: isMyTurn ? 1 : 0.45, pointerEvents: isMyTurn ? "auto" : "none" }}>
+              <div style={{ flex: 1, overflowY: "auto", minHeight: 0, opacity: isMyTurn ? 1 : 0.7, pointerEvents: isMyTurn ? "auto" : "none" }}>
                 <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, ${tW}px)`, gap: `${hGap}px ${hGap}px`, justifyContent: "center", alignContent: "start" }}>
                   {sortedHand.map(t => {
                     const isPlayable = isMyTurn && playableIds.has(t.id);

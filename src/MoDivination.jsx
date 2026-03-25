@@ -406,7 +406,7 @@ export default function App({ onPlayDomiMo }){
         {/* What is Mo? + Domi-Mo — always visible */}
         <div style={{textAlign:"center",marginBottom:16,display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
           {!hr&&<button className="ib" onClick={()=>sShowInfo(true)}>What is Mo?</button>}
-          {onPlayDomiMo&&<button className="ib" onClick={onPlayDomiMo} style={{color:P.saffron,borderColor:P.saffron+"66"}}>⬥ Play Domi-Mo</button>}
+          {onPlayDomiMo&&<button onClick={onPlayDomiMo} style={{background:`${P.saffron}18`,color:P.saffron,border:`2px solid ${P.saffron}88`,fontFamily:"'Space Mono',monospace",fontSize:13,fontWeight:700,letterSpacing:3,textTransform:"uppercase",padding:"14px 28px",cursor:"pointer",transition:"all 0.2s",boxShadow:`0 0 20px ${P.saffron}22`}}>⬥ PLAY DOMI-MO ⬥</button>}
         </div>
 
         {/* QUESTION */}
