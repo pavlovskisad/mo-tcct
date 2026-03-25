@@ -176,12 +176,8 @@ function OnlineLobby({ onStartOnline, onBack }) {
   });
   const pushRef = useRef(null);
 
-  // When opponent joins our waiting room, start the game
-  useEffect(() => {
-    if (mpStatus === "connected" && myIdx === 0) {
-      // will be triggered via onGameStateUpdate when host pushes initial state
-    }
-  }, [mpStatus]);
+  // When opponent joins our waiting room, the game starts
+  // via onGameStateUpdate when host pushes initial state
 
   // When we join as player 2, request the game state
   // (host will push it when they see player2 joined)
@@ -345,33 +341,6 @@ export default function DomiMo({ onBack }) {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [screen, roomCode]);
 
-  // Turn timer — 20s, auto-pass on expire
-  useEffect(() => {
-    if (screen !== "game" || !game || game.phase === "ended") {
-      clearInterval(timerRef.current);
-      setTurnTimer(null);
-      return;
-    }
-    if (isMyTurn) {
-      setTurnTimer(20);
-      clearInterval(timerRef.current);
-      timerRef.current = setInterval(() => {
-        setTurnTimer(t => {
-          if (t <= 1) {
-            clearInterval(timerRef.current);
-            pass();
-            return null;
-          }
-          return t - 1;
-        });
-      }, 1000);
-    } else {
-      clearInterval(timerRef.current);
-      setTurnTimer(null);
-    }
-    return () => clearInterval(timerRef.current);
-  }, [isMyTurn, screen, game?.phase]);
-
   // ── Local game start ──
   const start = useCallback(() => {
     setIsOnline(false);
@@ -510,6 +479,33 @@ export default function DomiMo({ onBack }) {
       return newG;
     });
   }, [game, isOnline, isMyTurn, myPlayerIndex, pushGameState]);
+
+  // Turn timer — 20s, auto-pass on expire
+  useEffect(() => {
+    if (screen !== "game" || !game || game.phase === "ended") {
+      clearInterval(timerRef.current);
+      setTurnTimer(null);
+      return;
+    }
+    if (isMyTurn) {
+      setTurnTimer(20);
+      clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        setTurnTimer(t => {
+          if (t <= 1) {
+            clearInterval(timerRef.current);
+            pass();
+            return null;
+          }
+          return t - 1;
+        });
+      }, 1000);
+    } else {
+      clearInterval(timerRef.current);
+      setTurnTimer(null);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [isMyTurn, screen, game?.phase, pass]);
 
   const canDraw = game && !playable.length && game.draws < 1 && game.pool.length > 0 && isMyTurn;
   const winner = useMemo(() => {
