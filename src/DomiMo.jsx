@@ -164,6 +164,59 @@ function MantraAnim() {
   );
 }
 
+/* ===== TILE CONNECTION DEMO — shows how connector matches chain end ===== */
+function TileDemo() {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setStep(s => (s + 1) % 4), 1800);
+    return () => clearInterval(iv);
+  }, []);
+  const S = 44, TF = "'Space Mono',monospace";
+  const cellStyle = (si, glow) => ({
+    width: S, height: S + 6, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    background: `${SC[si]}${glow ? "18" : "0A"}`, border: `1px solid ${SC[si]}${glow ? "88" : "33"}`,
+    boxShadow: glow ? `0 0 14px ${SC[si]}44` : "none", transition: "all 0.4s",
+  });
+  const lbl = (si, txt) => <span style={{ fontSize: 11, color: SC[si], fontFamily: TF, fontWeight: 700, lineHeight: 1 }}>{txt}</span>;
+  const tb = (si) => <span style={{ fontSize: 18, color: SC[si], lineHeight: 1, marginTop: 2 }}>{TIB[si]}</span>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, margin: "12px 0 16px", padding: "14px 0", borderTop: `1px solid ${P.royalBlue}15`, borderBottom: `1px solid ${P.royalBlue}15` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <div style={cellStyle(0, false)}>{lbl(0, "AH")}{tb(0)}</div>
+        <div style={cellStyle(1, step >= 2)}>{lbl(1, "RA")}{tb(1)}</div>
+
+        {step >= 1 && step < 3 && <>
+          <div style={{
+            display: "flex", alignItems: "center", padding: "3px 2px",
+            border: `1px solid ${step >= 2 ? P.yellow + "66" : P.gold + "22"}`,
+            background: step >= 2 ? `${P.yellow}10` : "transparent",
+            transition: "all 0.5s", marginLeft: step >= 2 ? -2 : 10,
+            opacity: step >= 2 ? 0.6 : 1,
+          }}>
+            <div style={{ padding: "4px 5px", display: "flex", flexDirection: "column", alignItems: "center", background: `${SC[1]}08` }}>
+              {lbl(1, "RA")}{tb(1)}
+            </div>
+            <div style={{ width: 1, height: 24, background: P.gold + "22" }} />
+            <div style={{ padding: "4px 5px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+              {lbl(2, "PA")}{tb(2)}
+            </div>
+          </div>
+        </>}
+
+        {step >= 3 && <div style={{ ...cellStyle(2, true), animation: "scoreFlash 0.8s ease" }}>{lbl(2, "PA")}{tb(2)}</div>}
+      </div>
+
+      <div style={{ fontSize: 10, fontFamily: TF, color: P.tM + "88", textAlign: "center" }}>
+        {step === 0 && "chain ends with RA..."}
+        {step === 1 && "tile RA→PA: connector matches end"}
+        {step === 2 && "connector merges with chain end"}
+        {step === 3 && "payload PA becomes the new end ✓"}
+      </div>
+    </div>
+  );
+}
+
 // ── Online Lobby Screen ────────────────────────────────────────────────────────
 function OnlineLobby({ onStartOnline, onBack }) {
   const [view, setView] = useState("menu"); // menu | join
@@ -597,11 +650,27 @@ export default function DomiMo({ onBack }) {
             </div>
           </div>
 
-          {/* Rules summary */}
-          <div style={{ background: `${P.royalBlue}12`, border: `1px solid ${P.gold}22`, padding: "14px", marginBottom: 24, textAlign: "left" }}>
-            <div style={{ fontSize: 11, fontFamily: F, color: P.bGold, fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>HOW TO PLAY</div>
-            <div style={{ fontSize: 13, lineHeight: 1.8, color: P.t2 }}>
-              Match tile connectors to chain ends. Build mantra sequences <span style={{ color: P.bGold, fontFamily: F }}>AH→RA→PA→TSA→NA→DHI</span> for points. Fill the mantra bar twice to win.
+          {/* MANTRA MEANING */}
+          <div style={{ background: `${P.royalBlue}12`, border: `1px solid ${P.bGold}22`, padding: "16px 14px", marginBottom: 22, textAlign: "center" }}>
+            <p style={{ fontSize: 11, letterSpacing: 4, color: P.bGold, fontFamily: F, fontWeight: 700, marginBottom: 8 }}>OM AH RA PA TSA NA DHI</p>
+            <p style={{ fontSize: 14, lineHeight: 1.8, color: P.t2 }}>
+              A sacred invocation of Manjushri, the Bodhisattva of Wisdom. Each syllable carries the energy of <span style={{ color: P.t1 }}>clarity, sharp intellect, and deep understanding</span>. Practitioners chant this mantra to dissolve confusion, strengthen memory, and awaken the kind of insight that sees through surface into the heart of things.
+            </p>
+          </div>
+
+          <div style={{ background: "#1A2040", border: `1px solid ${P.royalBlue}15`, padding: "18px 16px", marginBottom: 24, textAlign: "left" }}>
+            <h3 style={{ fontSize: 11, color: P.bGold, fontWeight: 700, marginBottom: 10, fontFamily: F, letterSpacing: 2 }}>HOW TO PLAY</h3>
+            <div style={{ fontSize: 15, lineHeight: 1.9, color: P.t2 }}>
+              <p style={{ marginBottom: 12 }}>Each tile has a <span style={{ color: P.bGold }}>connector</span> that matches an open chain end, and a <span style={{ color: P.teal }}>payload</span> that becomes the new end. Chain grows left and right.</p>
+
+              {/* TILE CONNECTION DEMO */}
+              <TileDemo />
+
+              <p style={{ marginBottom: 8 }}>Build mantra sequences reading left→right: <span style={{ color: P.bGold, fontFamily: F }}>AH→RA→PA→TSA→NA→DHI</span>.</p>
+              <p style={{ marginBottom: 8 }}><span style={{ color: P.bGold, fontFamily: F }}>Points:</span> 2 in a row = 1 · 3 = 3 · 4 = 7 · 5 = 15 · full mantra = 30.</p>
+              <p style={{ marginBottom: 8 }}><span style={{ color: P.saffron }}>Streaks:</span> score a segment and go again — up to 2 bonus turns. Chain your moves wisely.</p>
+              <p style={{ marginBottom: 8 }}>Can't play? Draw <span style={{ color: P.saffron }}>3 tiles</span> from the Mala Pool. Still stuck? Pass. Two consecutive passes end the game.</p>
+              <p>Fill the mantra bar twice to win. Highest score takes it.</p>
             </div>
           </div>
           <div style={{ fontSize: 10, color: P.tM, fontFamily: F, letterSpacing: 2 }}>20 TILES · MALA 108</div>
