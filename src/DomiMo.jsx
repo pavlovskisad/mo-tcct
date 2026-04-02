@@ -272,9 +272,12 @@ export default function DomiMo({ onBack }) {
   const [myPlayerIndex, setMyPlayerIndex] = useState(null);
   const [opponentGone, setOpponentGone] = useState(false);
   const [turnTimer, setTurnTimer] = useState(null);
+  const [isShadow, setIsShadow] = useState(false);
   const timerRef = useRef(null);
   const passRef = useRef(null);
   const hostPushedRef = useRef(false);
+  const shadowTimerRef = useRef(null);
+  const shadowBotRef = useRef(null);
   useEffect(() => { const h = () => setScreenW(window.innerWidth); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
 
   useEffect(() => {
@@ -316,6 +319,24 @@ export default function DomiMo({ onBack }) {
   // Sync myPlayerIndex from hook
   useEffect(() => { if (mpMyIdx !== null) setMyPlayerIndex(mpMyIdx); }, [mpMyIdx]);
 
+  // Shadow player: if waiting 10s in quick match with no opponent, start shadow game
+  useEffect(() => {
+    if (mpStatus === "waiting") {
+      shadowTimerRef.current = setTimeout(async () => {
+        await leaveMatch();
+        setIsShadow(true);
+        setMyPlayerIndex(0);
+        const g = initG();
+        setGame(g);
+        setScreen("game");
+        setMsg("Your turn — play any tile");
+      }, 10000);
+      return () => clearTimeout(shadowTimerRef.current);
+    } else {
+      clearTimeout(shadowTimerRef.current);
+    }
+  }, [mpStatus, leaveMatch]);
+
   // Reconnect after screen lock / tab switch
   useEffect(() => {
     const onVisible = async () => {
@@ -349,11 +370,13 @@ export default function DomiMo({ onBack }) {
 
   const backToSetup = useCallback(async () => {
     await leaveMatch();
+    clearTimeout(shadowBotRef.current);
     setScreen("setup");
     setLobbyView("menu");
     setCodeInput("");
     setGame(null);
     setOpponentGone(false);
+    setIsShadow(false);
   }, [leaveMatch]);
 
   const ends = useMemo(() => game?.chain ? getEnds(game.chain) : [], [game?.chain]);
@@ -385,7 +408,7 @@ export default function DomiMo({ onBack }) {
   }, [myHand]);
 
   function placeTile(g, tile, endSide, preConn, prePay) {
-    const activePl = myPlayerIndex;
+    const activePl = g.cur;
     const ch = g.chain ? g.chain.map(n => ({ ...n })) : [];
     const pn = prePay || mkN(tile.payload, activePl);
     if (!g.chain) ch.push(preConn || mkN(tile.connector, activePl), pn);
@@ -411,12 +434,12 @@ export default function DomiMo({ onBack }) {
     let nextMsg;
     if (ended) nextMsg = "Mantra complete! 🏆";
     else if (canStreak) nextMsg = `+${sc.pts} (${sc.syls.join("→")}) — streak! Go again`;
-    else if (scored) nextMsg = `+${sc.pts} (${sc.syls.join("→")})! Opponent's turn`;
+    else if (scored) nextMsg = `+${sc.pts} (${sc.syls.join("→")})! ${nx === myPlayerIndex ? "Your turn" : "Opponent's turn"}`;
     else nextMsg = nx === myPlayerIndex ? "Your turn" : "Opponent's turn...";
     if (ended) { setScreen("end"); setMsg("Mantra complete! 🏆"); }
     else setMsg(nextMsg);
     const newG = { ...g, chain: ch, players: npl, sel: null, cur: nx, passes: 0, draws: 0, progress: np, recs: nr, phase: ended ? "ended" : "playing", firstRec: nfr, placed: tp, lastDraw: null, streak: newStreak, scoredIds };
-    pushGameState(toRaw(newG));
+    if (!isShadow) pushGameState(toRaw(newG));
     return newG;
   }
 
@@ -453,10 +476,10 @@ export default function DomiMo({ onBack }) {
       const names = drawn.map(d => `${d.connector}→${d.payload}`).join(", ");
       setMsg(anyPlayable ? `Drew 3: ${names} — check your hand!` : `Drew 3: ${names}. No match — pass.`);
       const newG = { ...g, pool: np, players: npl, draws: 1, lastDraw: drawn[drawn.length - 1] };
-      pushGameState(toRaw(newG));
+      if (!isShadow) pushGameState(toRaw(newG));
       return newG;
     });
-  }, [game, isMyTurn, myPlayerIndex, pushGameState]);
+  }, [game, isMyTurn, myPlayerIndex, pushGameState, isShadow]);
 
   const pass = useCallback(() => {
     if (!game) return;
@@ -466,16 +489,16 @@ export default function DomiMo({ onBack }) {
       if (np >= 2) {
         setScreen("end"); setMsg("Two passes — Game Over!");
         const newG = { ...g, passes: np, phase: "ended" };
-        pushGameState(toRaw(newG));
+        if (!isShadow) pushGameState(toRaw(newG));
         return newG;
       }
       const nx = myPlayerIndex ^ 1;
       setMsg("Opponent's turn...");
       const newG = { ...g, cur: nx, passes: np, draws: 0, sel: null, lastDraw: null };
-      pushGameState(toRaw(newG));
+      if (!isShadow) pushGameState(toRaw(newG));
       return newG;
     });
-  }, [game, isMyTurn, myPlayerIndex, pushGameState]);
+  }, [game, isMyTurn, myPlayerIndex, pushGameState, isShadow]);
 
   // Keep passRef in sync so timer doesn't depend on pass identity
   useEffect(() => { passRef.current = pass; }, [pass]);
@@ -506,6 +529,76 @@ export default function DomiMo({ onBack }) {
     }
     return () => clearInterval(timerRef.current);
   }, [isMyTurn, screen, game?.phase]);
+
+  // ── Shadow bot: plays when it's not the human's turn ──
+  useEffect(() => {
+    if (!isShadow || !game || game.phase === "ended" || screen !== "game") return;
+    const botIdx = myPlayerIndex ^ 1;
+    if (game.cur !== botIdx) return;
+
+    // Bot thinks for 1-2s
+    const delay = 1000 + Math.random() * 1000;
+    shadowBotRef.current = setTimeout(() => {
+      setGame(g => {
+        if (!g || g.phase === "ended" || g.cur !== botIdx) return g;
+        const botHand = g.players[botIdx].tiles;
+        const es = g.chain ? getEnds(g.chain) : [];
+
+        // First move — no chain yet, play any tile
+        if (!g.chain && botHand.length > 0) {
+          const tile = botHand[Math.floor(Math.random() * botHand.length)];
+          const cn = mkN(tile.connector, botIdx);
+          const pn = mkN(tile.payload, botIdx);
+          return placeTile(g, tile, "right", cn, pn);
+        }
+
+        // Find playable tiles
+        const playableTiles = botHand.filter(t => es.some(e => e.node.syllable === t.connector));
+
+        if (playableTiles.length > 0) {
+          // Score each option, pick the best
+          let bestTile = null, bestEnd = null, bestScore = -1;
+          for (const tile of playableTiles) {
+            const compatibleEnds = es.filter(e => e.node.syllable === tile.connector);
+            for (const end of compatibleEnds) {
+              const testCh = g.chain.map(n => ({ ...n }));
+              const testPn = mkN(tile.payload, botIdx);
+              if (end.side === "right") testCh.push(testPn);
+              else testCh.unshift(testPn);
+              const sc = scorePlace(testCh, testPn.id);
+              if (sc.pts > bestScore) { bestScore = sc.pts; bestTile = tile; bestEnd = end; }
+            }
+          }
+          if (!bestTile) { bestTile = playableTiles[0]; bestEnd = es.filter(e => e.node.syllable === bestTile.connector)[0]; }
+          const pn = mkN(bestTile.payload, botIdx);
+          return placeTile(g, bestTile, bestEnd.side, null, pn);
+        }
+
+        // No playable tile — draw if possible
+        if (g.draws < 1 && g.pool.length > 0) {
+          const np = [...g.pool];
+          const drawn = [];
+          for (let i = 0; i < 3 && np.length; i++) drawn.push(np.pop());
+          const nt = [...g.players[botIdx].tiles, ...drawn];
+          const npl = g.players.map((p, i) => i === botIdx ? { ...p, tiles: nt } : { ...p });
+          setMsg("Shadow drew 3 tiles...");
+          return { ...g, pool: np, players: npl, draws: 1, lastDraw: drawn[drawn.length - 1] };
+        }
+
+        // Pass
+        const np = g.passes + 1;
+        if (np >= 2) {
+          setScreen("end"); setMsg("Two passes — Game Over!");
+          return { ...g, passes: np, phase: "ended" };
+        }
+        const nx = botIdx ^ 1;
+        setMsg("Your turn");
+        return { ...g, cur: nx, passes: np, draws: 0, sel: null, lastDraw: null };
+      });
+    }, delay);
+
+    return () => clearTimeout(shadowBotRef.current);
+  }, [isShadow, game?.cur, game?.phase, game?.draws, screen, myPlayerIndex]);
 
   const canDraw = game && !playable.length && game.draws < 1 && game.pool.length > 0 && isMyTurn;
   const winner = useMemo(() => {
@@ -777,6 +870,7 @@ export default function DomiMo({ onBack }) {
             ))}
           </div>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexDirection: "column", alignItems: "center" }}>
+            <button className="dm-b" onClick={async () => { await backToSetup(); setTimeout(() => quickMatch(), 100); }}>⚡ Quick Match</button>
             <button className="dm-s" onClick={backToSetup}>← Menu</button>
           </div>
           <footer style={{ marginTop: 36 }}><div style={{ display: "flex", height: 3 }}>{FC.map((c, i) => <div key={i} style={{ flex: 1, background: c }} />)}</div><p style={{ fontSize: 8, color: P.tM, fontFamily: F, marginTop: 8 }}>Domi-Mo · TCCT</p></footer>
